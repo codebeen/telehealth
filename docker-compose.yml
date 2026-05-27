@@ -1,0 +1,52 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    container_name: db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-telehealth}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-telehealth}
+      POSTGRES_DB: ${POSTGRES_DB:-telehealth}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    container_name: telehealth_backend
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER:-telehealth}:${POSTGRES_PASSWORD:-telehealth}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-telehealth}"
+      PORT: 3000
+      NODE_ENV: development
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.dev
+    container_name: telehealth_frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:3000
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: 1000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  db_data:

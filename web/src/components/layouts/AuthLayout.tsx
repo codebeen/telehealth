@@ -4,9 +4,9 @@ import { Stethoscope, ShieldCheck, Clock, CheckCircle2 } from 'lucide-react';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-brand-bg font-sans">
+    <div className="grid h-screen grid-cols-1 lg:grid-cols-[40%_60%] bg-brand-bg font-sans overflow-hidden">
       {/* Left side: branding/benefits (hidden on mobile) */}
-      <div className="relative hidden w-0 flex-1 items-center justify-center bg-primary lg:flex lg:flex-col">
+      <div className="relative hidden items-center justify-center bg-primary lg:flex lg:flex-col h-full overflow-hidden">
         {/* Decorative Grid Patterns */}
         <div className="absolute inset-0 bg-[radial-gradient(#56CCF2_1px,transparent_1px)] [background-size:24px_24px] opacity-15" />
         
@@ -58,8 +58,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </div>
 
       {/* Right side: form containers */}
-      <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:flex-none lg:px-20 xl:px-24 bg-white shadow-2xl">
-        <div className="mx-auto w-full max-w-md lg:w-150">
+      <div className="flex flex-col px-4 py-12 sm:px-6 lg:px-16 xl:px-20 bg-white shadow-2xl h-full overflow-y-auto">
+        <div className="mx-auto w-full max-w-3xl my-auto">
           {/* Mobile Brand Display */}
           <div className="flex items-center justify-center gap-2 mb-8 lg:hidden">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white">

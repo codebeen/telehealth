@@ -1,0 +1,69 @@
+// =============================================================================
+// Model: Doctor
+// Purpose: Doctor-specific info; linked to User + ProfileDetails.
+// =============================================================================
+
+model Doctor {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @unique @map("user_id") @db.Uuid
+  profileDetailsId   String    @unique @map("profile_details_id") @db.Uuid
+  bio                String?   @db.Text
+  licenseNumber      String    @unique @map("license_number") @db.VarChar(100)
+  yearsOfExperience  Int?      @map("years_of_experience")
+  consultationFee    Decimal?  @map("consultation_fee") @db.Decimal(10, 2)
+  isVerified         Boolean   @default(false) @map("is_verified")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  // Relations
+  user                  User                   @relation(fields: [userId], references: [id])
+  profileDetails        ProfileDetails         @relation(fields: [profileDetailsId], references: [id])
+  doctorSpecializations DoctorSpecialization[]
+  schedules             DoctorSchedule[]
+  appointments          Appointment[]
+  medicalRecords        MedicalRecord[]
+
+  @@map("doctors")
+}
+
+// =============================================================================
+// Model: Specialization
+// Purpose: Lookup table for medical specializations (e.g., Cardiology).
+// =============================================================================
+
+model Specialization {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique @db.VarChar(150)
+  description String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relations
+  doctorSpecializations     DoctorSpecialization[]
+  specializationSymptoms    SpecializationSymptom[]
+
+  @@map("specializations")
+}
+
+// =============================================================================
+// Model: DoctorSpecialization
+// Purpose: Many-to-many join between Doctor and Specialization.
+// =============================================================================
+
+model DoctorSpecialization {
+  id               String   @id @default(uuid()) @db.Uuid
+  doctorId         String   @map("doctor_id") @db.Uuid
+  specializationId String   @map("specialization_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  // Relations
+  doctor         Doctor         @relation(fields: [doctorId], references: [id])
+  specialization Specialization @relation(fields: [specializationId], references: [id])
+
+  @@unique([doctorId, specializationId])
+  @@map("doctor_specializations")
+}

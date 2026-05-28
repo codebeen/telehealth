@@ -1,0 +1,15 @@
+// =============================================================================
+// Telehealth Platform - Root Prisma Schema
+// =============================================================================
+// Uses prisma-schema-folder (or prisma-import) for multi-file support.
+// To generate client: `prisma generate`
+// To migrate:         `prisma migrate dev`
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}

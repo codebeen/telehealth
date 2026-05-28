@@ -1,0 +1,48 @@
+// =============================================================================
+// Model: MedicalRecord
+// Purpose: Doctor's post-consultation notes and diagnosis per appointment.
+// =============================================================================
+
+model MedicalRecord {
+  id                String    @id @default(uuid()) @db.Uuid
+  appointmentId     String    @unique @map("appointment_id") @db.Uuid
+  doctorId          String    @map("doctor_id") @db.Uuid
+  patientId         String    @map("patient_id") @db.Uuid
+  diagnosis         String    @db.Text
+  consultationNotes String?   @map("consultation_notes") @db.Text
+  followUpDate      DateTime? @map("follow_up_date") @db.Date
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  // Relations
+  appointment   Appointment    @relation(fields: [appointmentId], references: [id])
+  doctor        Doctor         @relation(fields: [doctorId], references: [id])
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  prescriptions Prescription[]
+
+  @@map("medical_records")
+}
+
+// =============================================================================
+// Model: Prescription
+// Purpose: Individual medicine entry under a medical record (one-to-many).
+// =============================================================================
+
+model Prescription {
+  id              String   @id @default(uuid()) @db.Uuid
+  medicalRecordId String   @map("medical_record_id") @db.Uuid
+  medicineName    String   @map("medicine_name") @db.VarChar(255)
+  dosage          String   @db.VarChar(100)
+  frequency       String   @db.VarChar(100)
+  duration        String   @db.VarChar(100)
+  instructions    String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  medicalRecord MedicalRecord @relation(fields: [medicalRecordId], references: [id])
+
+  @@map("prescriptions")
+}

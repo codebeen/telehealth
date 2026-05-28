@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
+  const [showPassword, setShowPassword] = useState(false);
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div>
@@ -18,7 +20,7 @@ export default function LoginPage() {
 
       <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
         <div>
-          <label htmlFor="email" className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+          <label htmlFor="email" className="block text-xs font-bold text-slate-600 tracking-wider">
             Email Address
           </label>
           <div className="mt-1.5">
@@ -37,7 +39,7 @@ export default function LoginPage() {
 
         <div>
           <div className="flex items-center justify-between">
-            <label htmlFor="password" className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+            <label htmlFor="password" className="block text-xs font-bold text-slate-600 tracking-wider">
               Password
             </label>
             <div className="text-xs">
@@ -46,17 +48,24 @@ export default function LoginPage() {
               </a>
             </div>
           </div>
-          <div className="mt-1.5">
+          <div className="mt-1.5 relative">
             <input
               id="password"
               name="password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               required
               defaultValue="password123"
-              className="block w-full h-11 rounded-xl border border-slate-200 px-3.5 text-xs font-medium text-brand-text outline-hidden focus:border-primary/30 focus:ring-1 focus:ring-primary/30"
+              className="block w-full h-11 rounded-xl border border-slate-200 pl-3.5 pr-10 text-xs font-medium text-brand-text outline-hidden focus:border-primary/30 focus:ring-1 focus:ring-primary/30"
               placeholder="••••••••"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-3.5 flex items-center text-slate-400 hover:text-slate-650 transition-colors"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
         </div>
 

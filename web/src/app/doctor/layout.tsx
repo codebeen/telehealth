@@ -9,7 +9,7 @@ const doctorNavigation = [
   { name: 'Appointments', href: '/doctor/appointments', icon: Calendar },
   { name: 'Patient Directory', href: '/doctor/patients', icon: Users },
   { name: 'Consultation Room', href: '/doctor/consultation/session', icon: MessageSquareCode },
-  { name: 'Consultation Schedule', href: '/doctor/consultation/schedule', icon: Calendar },
+  { name: 'Schedule Management', href: '/doctor/consultation/schedule', icon: Calendar },
 ];
 
 const doctorUser = {

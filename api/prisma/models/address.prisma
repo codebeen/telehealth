@@ -1,0 +1,26 @@
+// =============================================================================
+// Model: Address
+// Purpose: Normalized address record shared via ProfileDetails.
+//          Supports Philippine address structure (barangay, city/municipality,
+//          province, region) as well as international use via country field.
+// =============================================================================
+
+model Address {
+  id           String    @id @default(uuid()) @db.Uuid
+  streetLine1  String    @map("street_line1") @db.VarChar(255)
+  streetLine2  String?   @map("street_line2") @db.VarChar(255)
+  barangay     String?   @db.VarChar(150)
+  city         String    @db.VarChar(150)
+  province     String?   @db.VarChar(150)
+  region       String?   @db.VarChar(150)
+  zipCode      String?   @map("zip_code") @db.VarChar(20)
+  country      String    @default("Philippines") @db.VarChar(100)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Relations
+  profileDetails ProfileDetails?
+
+  @@map("addresses")
+}

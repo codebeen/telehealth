@@ -1,0 +1,23 @@
+// =============================================================================
+// Model: Notification
+// Purpose: In-app + push notifications for appointment lifecycle events.
+// =============================================================================
+
+model Notification {
+  id            String           @id @default(uuid()) @db.Uuid
+  userId        String           @map("user_id") @db.Uuid
+  appointmentId String?          @map("appointment_id") @db.Uuid
+  title         String           @db.VarChar(255)
+  message       String           @db.Text
+  type          NotificationType
+  isRead        Boolean          @default(false) @map("is_read")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  deletedAt     DateTime?        @map("deleted_at")
+
+  // Relations
+  user        User         @relation(fields: [userId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@map("notifications")
+}

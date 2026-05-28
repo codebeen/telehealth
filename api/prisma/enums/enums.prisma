@@ -1,0 +1,47 @@
+// =============================================================================
+// Enums - All application-wide enumerations
+// =============================================================================
+
+enum UserRole {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum MedicalHistoryStatus {
+  ACTIVE
+  RESOLVED
+}
+
+enum ScheduleStatus {
+  AVAILABLE
+  BOOKED
+  BLOCKED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum ConsultationProvider {
+  GOOGLE_MEET
+  ZOOM
+  JITSI
+}
+
+enum ConsultationStatus {
+  WAITING
+  ONGOING
+  ENDED
+}
+
+enum NotificationType {
+  BOOKED
+  UPCOMING
+  CANCELLED
+  RESCHEDULED
+}

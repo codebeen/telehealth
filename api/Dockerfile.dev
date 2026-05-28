@@ -11,5 +11,8 @@ RUN pnpm install
 # Copy source
 COPY . .
 
-EXPOSE 3000
+# Generate Prisma Client
+RUN pnpm prisma generate
+
+EXPOSE 3001
 CMD ["pnpm", "run", "start:dev"]

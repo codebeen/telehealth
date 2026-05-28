@@ -94,14 +94,13 @@ export default function LoginPage() {
               id="remember-me"
               name="remember-me"
               type="checkbox"
-              defaultChecked
               className="h-4 w-4 rounded-sm border-slate-300 text-primary focus:ring-primary"
             />
             <span className="text-xs font-semibold text-slate-500">Remember me</span>
           </label>
-          <a href="#" className="text-xs font-bold text-primary hover:underline">
+          <Link href="/forgot-password" className="text-xs font-bold text-primary hover:underline">
             Forgot password?
-          </a>
+          </Link>
         </div>
 
         <div className="pt-2">

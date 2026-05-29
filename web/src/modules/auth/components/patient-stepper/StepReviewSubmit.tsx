@@ -35,6 +35,7 @@ interface StepReviewSubmitProps {
   emergencyContactName: string;
   emergencyContactNumber: string;
   medicalHistories: MedicalHistoryItem[];
+  allergies: string;
   isAgreed: boolean;
   setIsAgreed: (val: boolean) => void;
   errors: Record<string, string>;
@@ -63,6 +64,7 @@ export default function StepReviewSubmit({
   emergencyContactName,
   emergencyContactNumber,
   medicalHistories,
+  allergies,
   isAgreed,
   setIsAgreed,
   errors
@@ -150,6 +152,26 @@ export default function StepReviewSubmit({
             <span className="text-slate-400">Contact Number:</span>
             <span className="text-brand-text">{emergencyContactNumber || 'N/A'}</span>
           </div>
+        </div>
+      </div>
+
+      {/* Section: Allergies */}
+      <div className="p-4 border border-slate-100 rounded-xl space-y-2 bg-slate-50/10">
+        <h4 className="text-[11px] font-bold text-primary uppercase tracking-wider">Allergies</h4>
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {allergies.trim() ? (
+            allergies.split(',').map((allergy, index) => {
+              const cleaned = allergy.trim();
+              if (!cleaned) return null;
+              return (
+                <span key={index} className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-100/50 px-2 py-0.5 rounded-md">
+                  {cleaned}
+                </span>
+              );
+            })
+          ) : (
+            <span className="text-xs font-semibold text-slate-400 italic">No allergies declared.</span>
+          )}
         </div>
       </div>
 

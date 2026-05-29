@@ -59,6 +59,7 @@ export default function PatientRegisterStepper() {
   
   // Step 3: Medical History
   const [medicalHistories, setMedicalHistories] = useState<MedicalHistoryItem[]>([]);
+  const [allergies, setAllergies] = useState<string>('');
   
   // Step 4: Agreement
   const [isAgreed, setIsAgreed] = useState<boolean>(false);
@@ -176,6 +177,16 @@ export default function PatientRegisterStepper() {
     if (!validateStep(4)) return;
     
     setIsSubmitting(true);
+
+    // Save registration details to localStorage to mock dashboard linkage
+    const registeredProfile = {
+      allergies: allergies.split(',').map((a) => a.trim()).filter(Boolean),
+      medicalHistories: medicalHistories,
+      bloodType: bloodType,
+      weight: weight,
+      height: height,
+    };
+    localStorage.setItem('registered_patient_profile', JSON.stringify(registeredProfile));
     
     // Simulate API registration call
     setTimeout(() => {
@@ -333,6 +344,8 @@ export default function PatientRegisterStepper() {
               addMedicalHistory={addMedicalHistory}
               updateMedicalHistory={updateMedicalHistory}
               removeMedicalHistory={removeMedicalHistory}
+              allergies={allergies}
+              setAllergies={setAllergies}
               errors={errors}
             />
           )}
@@ -361,6 +374,7 @@ export default function PatientRegisterStepper() {
               emergencyContactName={emergencyContactName}
               emergencyContactNumber={emergencyContactNumber}
               medicalHistories={medicalHistories}
+              allergies={allergies}
               isAgreed={isAgreed}
               setIsAgreed={setIsAgreed}
               errors={errors}

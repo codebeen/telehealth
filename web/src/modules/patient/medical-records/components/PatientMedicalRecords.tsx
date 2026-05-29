@@ -1,52 +1,98 @@
 'use client';
 
-import React from 'react';
-import { HeartPulse, Download, Upload } from 'lucide-react';
+import React, { useState } from 'react';
+import { 
+  History, Pill, ClipboardList, ShieldAlert
+} from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
+import MedicalProfileSummary from './MedicalProfileSummary';
+import ConsultationHistoryList from './ConsultationHistoryList';
+import PrescriptionList from './PrescriptionList';
+import MedicalHistoryList from './MedicalHistoryList';
+import AllergiesList from './AllergiesList';
+import { MedicalHistoryItem } from '../types/medicalRecord';
+
+import { 
+  mockHealthProfile, 
+  mockConsultations, 
+  mockPrescriptions, 
+  mockMedicalHistory 
+} from '../services/medicalRecordService';
 
 export default function PatientMedicalRecords() {
-  const records = [
-    { name: 'Lipid Profile Blood Test', date: 'May 08, 2026', doctor: 'Dr. Evelyn Adams', size: '1.4 MB' },
-    { name: 'ECG Cardiac Scan Results', date: 'April 14, 2026', doctor: 'Dr. Evelyn Adams', size: '3.2 MB' },
-    { name: 'Annual Physical Diagnostics', date: 'Jan 10, 2026', doctor: 'Dr. Sarah Connor', size: '2.1 MB' }
+  const [activeTab, setActiveTab] = useState<'consultations' | 'prescriptions' | 'history' | 'allergies'>('consultations');
+  const [medicalHistory, setMedicalHistory] = useState<MedicalHistoryItem[]>(mockMedicalHistory);
+  const [allergiesList, setAllergiesList] = useState<string[]>(mockHealthProfile.allergies);
+
+  const tabs = [
+    { id: 'consultations' as const, label: 'Consultations & Notes', icon: History },
+    { id: 'prescriptions' as const, label: 'My Prescriptions', icon: Pill },
+    { id: 'history' as const, label: 'Medical History', icon: ClipboardList },
+    { id: 'allergies' as const, label: 'Allergies', icon: ShieldAlert }
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300 pb-12">
+      
+      {/* Page Title Header */}
       <PageHeader 
         title="My Medical Records" 
-        description="Securely store and share lab tests, scans, and reports with doctors." 
-        action={
-          <button className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary-dark transition-colors flex items-center gap-1.5">
-            <Upload className="h-4 w-4" /> Upload Document
-          </button>
-        }
+        description="Review previous consultations, view health stats, check active prescriptions, and manage your pre-existing medical history." 
       />
 
-      <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-xs">
-        <div className="divide-y divide-slate-50">
-          {records.map((rec, index) => (
-            <div key={index} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-500">
-                  <HeartPulse className="h-5 w-5" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-brand-text text-sm">{rec.name}</h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
-                    Uploaded: {rec.date} · Shared with: <span className="font-semibold text-slate-500">{rec.doctor}</span>
-                  </p>
-                  <span className="text-[9px] text-slate-400 block">{rec.size}</span>
-                </div>
-              </div>
+      {/* Basic Health Metrics Profile Widget */}
+      <MedicalProfileSummary 
+        profile={mockHealthProfile} 
+        consultations={mockConsultations}
+        prescriptions={mockPrescriptions}
+        medicalHistory={medicalHistory}
+        allergiesList={allergiesList}
+      />
 
-              <button className="text-slate-400 hover:text-primary transition-colors p-2" title="Download Document">
-                <Download className="h-4.5 w-4.5" />
-              </button>
-            </div>
-          ))}
-        </div>
+      {/* Tab Selectors */}
+      <div className="flex gap-2.5 border-b border-slate-100 pb-1 mb-2">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                isActive 
+                  ? 'bg-primary text-white shadow-xs' 
+                  : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-transparent'
+              }`}
+            >
+              <Icon className="h-4 w-4" /> {tab.label}
+            </button>
+          );
+        })}
       </div>
+
+      {/* Tab content rendering */}
+      <div className="mt-4">
+        {activeTab === 'consultations' && (
+          <ConsultationHistoryList records={mockConsultations} />
+        )}
+        {activeTab === 'prescriptions' && (
+          <PrescriptionList prescriptions={mockPrescriptions} />
+        )}
+        {activeTab === 'history' && (
+          <MedicalHistoryList 
+            historyList={medicalHistory} 
+            setHistoryList={setMedicalHistory} 
+          />
+        )}
+        {activeTab === 'allergies' && (
+          <AllergiesList 
+            allergiesList={allergiesList} 
+            setAllergiesList={setAllergiesList} 
+          />
+        )}
+      </div>
+
     </div>
   );
 }
+

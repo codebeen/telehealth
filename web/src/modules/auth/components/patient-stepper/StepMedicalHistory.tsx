@@ -18,6 +18,8 @@ interface StepMedicalHistoryProps {
   addMedicalHistory: () => void;
   updateMedicalHistory: (id: string, field: keyof MedicalHistoryItem, value: string) => void;
   removeMedicalHistory: (id: string) => void;
+  allergies: string;
+  setAllergies: (val: string) => void;
   errors: Record<string, string>;
 }
 
@@ -26,10 +28,26 @@ export default function StepMedicalHistory({
   addMedicalHistory,
   updateMedicalHistory,
   removeMedicalHistory,
+  allergies,
+  setAllergies,
   errors
 }: StepMedicalHistoryProps) {
   return (
-    <div className="space-y-5 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-200">
+      
+      {/* Allergies Input Section */}
+      <div className="p-4 border border-slate-100 bg-slate-50/20 rounded-2xl space-y-2">
+        <label className="block text-xs font-bold text-slate-650 uppercase tracking-wider">Allergies (Optional)</label>
+        <p className="text-[10px] text-slate-450 leading-relaxed">List any drug, food, or environmental allergies (comma-separated, e.g. Penicillin, Pollen, Peanuts)</p>
+        <input
+          type="text"
+          placeholder="e.g. Penicillin, Pollen, Peanuts, Latex"
+          value={allergies}
+          onChange={(e) => setAllergies(e.target.value)}
+          className="mt-1 block w-full h-10.5 rounded-xl border border-slate-200 px-3.5 text-xs font-semibold text-brand-text bg-white outline-hidden focus:border-primary/30 focus:ring-1 focus:ring-primary/20 transition-all"
+        />
+      </div>
+
       <div className="flex justify-between items-center border-b border-slate-50 pb-2 mb-4">
         <StepperTitle 
           step={3} 

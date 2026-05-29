@@ -1,5 +1,5 @@
-import RegisterPage from '@/modules/auth/components/RegisterPage';
+import LoginPage from '@/modules/auth/components/LoginPage';
 
 export default function Page() {
-  return <RegisterPage role="patient" />;
+  return <LoginPage />;
 }

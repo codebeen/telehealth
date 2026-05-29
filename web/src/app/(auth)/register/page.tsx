@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import RegisterPage from '@/modules/auth/components/RegisterPage';
 
 export default function Page() {
-  redirect('/');
+  return <RegisterPage role="patient" />;
 }

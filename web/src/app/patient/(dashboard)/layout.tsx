@@ -2,11 +2,10 @@
 
 import React from 'react';
 import {
-  LayoutDashboard, CalendarRange, HeartPulse,
-  SearchCode, PlaySquare, Sparkles, User2,
-  List
+  LayoutDashboard, CalendarRange, SearchCode, List
 } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
+import KyuraChatWidget from '@/modules/patient/ai-recommendation/components/KyuraChatWidget';
 
 const patientNavigation = [
   { name: 'Dashboard', href: '/patient/dashboard', icon: LayoutDashboard },
@@ -25,6 +24,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
   return (
     <DashboardLayout navigation={patientNavigation} user={patientUser}>
       {children}
+      <KyuraChatWidget />
     </DashboardLayout>
   );
 }

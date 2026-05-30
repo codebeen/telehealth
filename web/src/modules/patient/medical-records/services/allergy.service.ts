@@ -19,6 +19,12 @@ export async function addPatientAllergy(name: string): Promise<PatientAllergy> {
   return response.data;
 }
 
+export async function updatePatientAllergy(id: string, name: string): Promise<PatientAllergy> {
+  const patientId = getCurrentPatientId();
+  const response = await api.patch(`/patients/${patientId}/allergies/${id}`, { name });
+  return response.data;
+}
+
 export async function removePatientAllergy(id: string): Promise<void> {
   const patientId = getCurrentPatientId();
   await api.delete(`/patients/${patientId}/allergies/${id}`);

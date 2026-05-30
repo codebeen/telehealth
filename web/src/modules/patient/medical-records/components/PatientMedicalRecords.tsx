@@ -2,44 +2,56 @@
 
 import React, { useEffect, useState } from 'react';
 import { 
-  History, Pill, ClipboardList, ShieldAlert
+  FileText, ClipboardList, ShieldAlert
 } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import MedicalProfileSummary from './MedicalProfileSummary';
 import ConsultationHistoryList from './ConsultationHistoryList';
-import PrescriptionList from './PrescriptionList';
 import MedicalHistoryList from './MedicalHistoryList';
 import AllergiesList from './AllergiesList';
 import { MedicalHistoryItem } from '../types/medicalRecord';
+import { ConsultationSessionRecord } from '../types/medicalRecord';
 import { getPatientAllergies, PatientAllergy } from '../services/allergy.service';
+import { getPatientMedicalHistories } from '../services/medicalHistory.service';
 
 import { 
   mockHealthProfile, 
   mockConsultations, 
   mockPrescriptions, 
-  mockMedicalHistory 
+  mockMedicalHistory,
+  getPatientConsultationRecords,
 } from '../services/medicalRecordService';
 
 export default function PatientMedicalRecords() {
-  const [activeTab, setActiveTab] = useState<'consultations' | 'prescriptions' | 'history' | 'allergies'>('consultations');
+  const [activeTab, setActiveTab] = useState<'consultations' | 'history' | 'allergies'>('consultations');
+  const [consultations, setConsultations] = useState<ConsultationSessionRecord[]>([]);
   const [medicalHistory, setMedicalHistory] = useState<MedicalHistoryItem[]>(mockMedicalHistory);
   const [allergiesList, setAllergiesList] = useState<PatientAllergy[]>([]);
+  const [isLoadingConsultations, setIsLoadingConsultations] = useState(true);
 
   useEffect(() => {
-    const loadAllergies = async () => {
+    const loadRecords = async () => {
       try {
-        const allergies = await getPatientAllergies();
+        const [consultationRecords, histories, allergies] = await Promise.all([
+          getPatientConsultationRecords(),
+          getPatientMedicalHistories(),
+          getPatientAllergies(),
+        ]);
+        setConsultations(consultationRecords);
+        setMedicalHistory(histories);
         setAllergiesList(allergies);
       } catch (err) {
-        console.error('Failed to load allergies:', err);
+        console.error('Failed to load patient medical records:', err);
+        setConsultations(mockConsultations);
+      } finally {
+        setIsLoadingConsultations(false);
       }
     };
-    loadAllergies();
+    loadRecords();
   }, []);
 
   const tabs = [
-    { id: 'consultations' as const, label: 'Consultations & Notes', icon: History },
-    { id: 'prescriptions' as const, label: 'My Prescriptions', icon: Pill },
+    { id: 'consultations' as const, label: 'Consultation History', icon: FileText },
     { id: 'history' as const, label: 'Medical History', icon: ClipboardList },
     { id: 'allergies' as const, label: 'Allergies', icon: ShieldAlert }
   ];
@@ -56,7 +68,7 @@ export default function PatientMedicalRecords() {
       {/* Basic Health Metrics Profile Widget */}
       <MedicalProfileSummary 
         profile={mockHealthProfile} 
-        consultations={mockConsultations}
+        consultations={consultations}
         prescriptions={mockPrescriptions}
         medicalHistory={medicalHistory}
         allergiesList={allergiesList}
@@ -86,10 +98,13 @@ export default function PatientMedicalRecords() {
       {/* Tab content rendering */}
       <div className="mt-4">
         {activeTab === 'consultations' && (
-          <ConsultationHistoryList records={mockConsultations} />
-        )}
-        {activeTab === 'prescriptions' && (
-          <PrescriptionList prescriptions={mockPrescriptions} />
+          isLoadingConsultations ? (
+            <div className="rounded-3xl border border-slate-100 bg-white p-10 text-center shadow-xs">
+              <p className="text-xs font-bold text-slate-400">Loading consultation history...</p>
+            </div>
+          ) : (
+            <ConsultationHistoryList records={consultations} />
+          )
         )}
         {activeTab === 'history' && (
           <MedicalHistoryList 

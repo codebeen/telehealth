@@ -8,6 +8,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateAllergyDto } from './dto/create-allergy.dto';
 import { PatientAllergyParamDto } from './dto/patient-allergy-param.dto';
 import { PatientIdParamDto } from './dto/patient-id-param.dto';
+import { UpdateAllergyDto } from './dto/update-allergy.dto';
 
 @Injectable()
 export class AllergiesService {
@@ -74,6 +75,48 @@ export class AllergiesService {
       id: allergy.id,
       name: allergy.name,
       createdAt: allergy.createdAt,
+    };
+  }
+
+  async update(userId: string, params: PatientAllergyParamDto, dto: UpdateAllergyDto) {
+    const patient = await this.getAuthorizedPatient(userId, params.patientId);
+    const trimmedName = dto.name.trim();
+    if (!trimmedName) {
+      throw new ConflictException('Allergy name cannot be empty');
+    }
+
+    const allergy = await this.prisma.patientAllergy.findFirst({
+      where: {
+        id: params.allergyId,
+        patientId: patient.id,
+        deletedAt: null,
+      },
+    });
+    if (!allergy) {
+      throw new NotFoundException('Allergy not found');
+    }
+
+    const duplicate = await this.prisma.patientAllergy.findFirst({
+      where: {
+        patientId: patient.id,
+        deletedAt: null,
+        name: { equals: trimmedName, mode: 'insensitive' },
+        id: { not: params.allergyId },
+      },
+    });
+    if (duplicate) {
+      throw new ConflictException('Allergy already listed');
+    }
+
+    const updated = await this.prisma.patientAllergy.update({
+      where: { id: params.allergyId },
+      data: { name: trimmedName },
+    });
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      createdAt: updated.createdAt,
     };
   }
 

@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ShieldAlert, Plus, X, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Plus, X, CheckCircle2, Pencil, Save } from 'lucide-react';
 import {
   addPatientAllergy,
   PatientAllergy,
   removePatientAllergy,
+  updatePatientAllergy,
 } from '../services/allergy.service';
 
 interface AllergiesListProps {
@@ -20,6 +21,9 @@ export default function AllergiesList({ allergiesList, setAllergiesList }: Aller
   const [successMsg, setSuccessMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const handleAddAllergy = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +68,41 @@ export default function AllergiesList({ allergiesList, setAllergiesList }: Aller
     }
   };
 
+  const handleStartEdit = (allergy: PatientAllergy) => {
+    setEditingId(allergy.id);
+    setEditName(allergy.name);
+    setError('');
+  };
+
+  const handleSaveEdit = async (allergy: PatientAllergy) => {
+    const trimmed = editName.trim();
+    if (!trimmed) {
+      setError('Allergy name is required');
+      return;
+    }
+    if (allergiesList.some((a) => a.id !== allergy.id && a.name.toLowerCase() === trimmed.toLowerCase())) {
+      setError('Allergy already listed');
+      return;
+    }
+
+    setSavingId(allergy.id);
+    setError('');
+    try {
+      const updated = await updatePatientAllergy(allergy.id, trimmed);
+      setAllergiesList((prev) => prev.map((a) => (a.id === allergy.id ? updated : a)));
+      setEditingId(null);
+      setEditName('');
+      setSuccessMsg(`"${updated.name}" has been updated.`);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 4000);
+    } catch (err: any) {
+      const message = err.response?.data?.message;
+      setError(Array.isArray(message) ? message[0] : message || 'Failed to update allergy');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
       <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -105,22 +144,73 @@ export default function AllergiesList({ allergiesList, setAllergiesList }: Aller
                   key={allergy.id}
                   className="flex items-center justify-between p-3.5 border border-slate-100/90 rounded-2xl bg-slate-50/20 hover:bg-slate-50/50 hover:border-slate-150 hover:shadow-2xs transition-all duration-150"
                 >
-                  <div className="flex items-center gap-3 pr-2">
+                  <div className="flex items-center gap-3 pr-2 min-w-0 flex-1">
                     <div className="h-8 w-8 rounded-xl bg-amber-50 border border-amber-100/60 text-amber-600 flex items-center justify-center shrink-0">
                       <ShieldAlert className="h-4 w-4" />
                     </div>
-                    <span className="text-xs font-extrabold text-slate-800 leading-snug">{allergy.name}</span>
+                    {editingId === allergy.id ? (
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => {
+                          setEditName(e.target.value);
+                          setError('');
+                        }}
+                        className="min-w-0 flex-1 h-9 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-brand-text bg-white outline-hidden focus:border-amber-300 focus:ring-1 focus:ring-amber-200 transition-all"
+                        placeholder="Allergy name"
+                      />
+                    ) : (
+                      <span className="text-xs font-extrabold text-slate-800 leading-snug">{allergy.name}</span>
+                    )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAllergy(allergy)}
-                    disabled={removingId === allergy.id}
-                    className="p-1.5 rounded-lg text-slate-350 hover:text-rose-500 hover:bg-rose-50/70 transition-all cursor-pointer shrink-0 disabled:opacity-40"
-                    title={`Remove ${allergy.name}`}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {editingId === allergy.id ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEdit(allergy)}
+                          disabled={savingId === allergy.id}
+                          className="p-1.5 rounded-lg text-slate-350 hover:text-emerald-600 hover:bg-emerald-50/70 transition-all cursor-pointer disabled:opacity-40"
+                          title={`Save ${allergy.name}`}
+                        >
+                          <Save className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditName('');
+                            setError('');
+                          }}
+                          className="p-1.5 rounded-lg text-slate-350 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+                          title="Cancel edit"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(allergy)}
+                          className="p-1.5 rounded-lg text-slate-350 hover:text-primary hover:bg-primary-light/50 transition-all cursor-pointer"
+                          title={`Edit ${allergy.name}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAllergy(allergy)}
+                          disabled={removingId === allergy.id}
+                          className="p-1.5 rounded-lg text-slate-350 hover:text-rose-500 hover:bg-rose-50/70 transition-all cursor-pointer disabled:opacity-40"
+                          title={`Remove ${allergy.name}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

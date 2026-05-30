@@ -7,6 +7,8 @@ import { PatientsService } from './patients.service';
 import { PatientsController } from './patients.controller';
 import { AllergiesController } from './allergies.controller';
 import { AllergiesService } from './allergies.service';
+import { MedicalHistoriesController } from './medical-histories.controller';
+import { MedicalHistoriesService } from './medical-histories.service';
 
 @Module({
   imports: [
@@ -18,15 +20,16 @@ import { AllergiesService } from './allergies.service';
       },
     }),
   ],
-  controllers: [PatientsController, AllergiesController],
+  controllers: [PatientsController, AllergiesController, MedicalHistoriesController],
   providers: [
     PatientsService,
     AllergiesService,
+    MedicalHistoriesService,
     {
       provide: PatientRepository,
       useClass: PrismaPatientRepository,
     },
   ],
-  exports: [PatientRepository, AllergiesService],
+  exports: [PatientRepository, AllergiesService, MedicalHistoriesService],
 })
 export class PatientsModule {}

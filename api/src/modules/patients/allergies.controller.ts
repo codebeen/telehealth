@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Request,
   UseGuards,
@@ -15,6 +16,7 @@ import { AllergiesService } from './allergies.service';
 import { PatientAllergyParamDto } from './dto/patient-allergy-param.dto';
 import { PatientIdParamDto } from './dto/patient-id-param.dto';
 import { CreateAllergyDto } from './dto/create-allergy.dto';
+import { UpdateAllergyDto } from './dto/update-allergy.dto';
 
 @Controller('patients/:patientId/allergies')
 @UseGuards(JwtAuthGuard)
@@ -29,6 +31,15 @@ export class AllergiesController {
   @Post()
   create(@Request() req, @Param() params: PatientIdParamDto, @Body() dto: CreateAllergyDto) {
     return this.allergiesService.create(req.user.sub, params, dto);
+  }
+
+  @Patch(':allergyId')
+  update(
+    @Request() req,
+    @Param() params: PatientAllergyParamDto,
+    @Body() dto: UpdateAllergyDto,
+  ) {
+    return this.allergiesService.update(req.user.sub, params, dto);
   }
 
   @Delete(':allergyId')

@@ -14,8 +14,13 @@ export interface ConsultationSessionRecord {
   specialty: string;
   date: string;
   duration: string;
-  diagnosis: string;
-  treatmentNotes: string;
+  consultationType: string;
+  clinicalFindings: string;
+  recommendations: string;
+  medicationPrescriptions: string;
+  finalSummary: string;
+  diagnosis?: string;
+  treatmentNotes?: string;
   prescriptionsLinked?: string[];
 }
 

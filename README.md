@@ -97,8 +97,7 @@ This telehealth platform is designed to connect patients with healthcare profess
 ### Prerequisites
 - Docker & Docker Compose
 - Node.js 20+ (for local development)
-- pnpm (or npm)
-- PostgreSQL 15 (for local development)
+- pnpm
 
 ### Quick Start with Docker
 

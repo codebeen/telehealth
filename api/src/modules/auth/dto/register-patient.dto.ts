@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsEmail, IsNotEmpty, IsNumber, IsOptional, IsString, Length, ValidateNested } from 'class-validator';
+import { IsArray, IsEmail, IsNotEmpty, IsNumber, IsOptional, IsString, Length, ValidateNested } from 'class-validator';
 import { AddressDto } from './address.dto';
 import { ProfileDetailsDto } from './profile-details.dto';
 
@@ -43,4 +43,9 @@ export class RegisterPatientDto {
   @IsOptional()
   @IsString()
   emergencyContactNumber?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  allergies?: string[];
 }

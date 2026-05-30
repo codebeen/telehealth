@@ -6,7 +6,7 @@ import { getDisplayDateFormatted } from '../services/appointmentService';
 interface CancelConfirmationModalProps {
   appointment: PatientAppointment;
   onClose: () => void;
-  onConfirm: (reason: string) => void;
+  onConfirm: (reason: string) => Promise<void>;
 }
 
 export default function CancelConfirmationModal({
@@ -16,18 +16,24 @@ export default function CancelConfirmationModal({
 }: CancelConfirmationModalProps) {
   const [reason, setReason] = useState('');
   const [cancelStep, setCancelStep] = useState<'confirm' | 'confirming' | 'success'>('confirm');
+  const [error, setError] = useState('');
 
-  const handleConfirmCancellation = () => {
+  const handleConfirmCancellation = async () => {
     setCancelStep('confirming');
 
-    // Simulate API delay
-    setTimeout(() => {
+    try {
+      await onConfirm(reason.trim() || 'No reason provided.');
       setCancelStep('success');
-    }, 1500);
+    } catch (err: any) {
+      console.error('Failed to cancel appointment:', err);
+      const message = err.response?.data?.message;
+      setError(Array.isArray(message) ? message[0] : message || 'Failed to cancel appointment');
+      setCancelStep('confirm');
+    }
   };
 
   const handleDone = () => {
-    onConfirm(reason.trim() || 'No reason provided.');
+    onClose();
   };
 
   return (
@@ -133,6 +139,12 @@ export default function CancelConfirmationModal({
                   className="w-full h-24 rounded-xl border border-slate-200 bg-slate-50/30 p-3 text-xs font-semibold text-brand-text outline-hidden focus:border-rose-300 focus:bg-white resize-none transition-all"
                 />
               </div>
+
+              {error && (
+                <div className="rounded-2xl bg-rose-50 border border-rose-500/20 p-3 text-xs text-rose-600 font-bold">
+                  {error}
+                </div>
+              )}
             </div>
 
             {/* Footer */}

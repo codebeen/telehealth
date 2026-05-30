@@ -1,0 +1,18 @@
+// =============================================================================
+// Model: PatientAllergy
+// Purpose: Individual allergy entries declared by a patient.
+// =============================================================================
+
+model PatientAllergy {
+  id        String    @id @default(uuid()) @db.Uuid
+  patientId String    @map("patient_id") @db.Uuid
+  name      String    @db.VarChar(255)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@map("patient_allergies")
+}

@@ -76,6 +76,7 @@ describe('AuthController (e2e)', () => {
         .send(validPatientPayload)
         .expect(201);
 
+      expect(response.body).toHaveProperty('accessToken');
       expect(response.body).toHaveProperty('userId');
       expect(response.body.email).toBe(validPatientPayload.email);
       expect(response.body.role).toBe('PATIENT');
@@ -131,6 +132,7 @@ describe('AuthController (e2e)', () => {
         .send(validDoctorPayload)
         .expect(201);
 
+      expect(response.body).toHaveProperty('accessToken');
       expect(response.body).toHaveProperty('userId');
       expect(response.body.email).toBe(validDoctorPayload.email);
       expect(response.body.role).toBe('DOCTOR');

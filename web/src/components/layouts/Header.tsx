@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { 
-  Menu, Bell, Search, ChevronDown, User, Settings, LogOut 
+  Menu, Bell, ChevronDown, User, Settings, LogOut, Stethoscope, Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UserProfile } from './Sidebar';
@@ -11,9 +11,10 @@ import { UserProfile } from './Sidebar';
 interface HeaderProps {
   user: UserProfile;
   setIsSidebarOpen: (open: boolean) => void;
+  onLogout: () => void;
 }
 
-export default function Header({ user, setIsSidebarOpen }: HeaderProps) {
+export default function Header({ user, setIsSidebarOpen, onLogout }: HeaderProps) {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -36,16 +37,19 @@ export default function Header({ user, setIsSidebarOpen }: HeaderProps) {
           <Menu className="h-5 w-5" />
         </button>
         
-        {/* Search Bar */}
-        <div className="relative hidden max-w-xs md:block">
-          <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
-            <Search className="h-4 w-4" />
-          </span>
-          <input
-            type="text"
-            placeholder="Search appointments, patients..."
-            className="h-10 w-72 rounded-xl bg-slate-50 pl-10 pr-4 text-xs font-medium text-brand-text outline-hidden border border-transparent focus:border-primary/20 focus:bg-white focus:ring-1 focus:ring-primary/25 transition-all duration-200"
-          />
+        {/* Portal Type Indicator */}
+        <div className="hidden md:flex items-center gap-2">
+          {user.role === 'doctor' ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-light border border-primary/10 text-primary animate-in fade-in duration-200">
+              <Stethoscope className="h-4 w-4" />
+              <span className="text-[11px] font-bold uppercase tracking-wider">Doctor Portal</span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent-light border border-accent/10 text-accent-dark animate-in fade-in duration-200">
+              <Activity className="h-4 w-4" />
+              <span className="text-[11px] font-bold uppercase tracking-wider">Patient Portal</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -150,13 +154,13 @@ export default function Header({ user, setIsSidebarOpen }: HeaderProps) {
                   </Link>
                 </div>
                 <div className="border-t border-slate-50 pt-1 mt-1">
-                  <Link 
-                    href="/" 
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                  <button 
+                    onClick={onLogout}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors cursor-pointer text-left"
                   >
                     <LogOut className="h-4 w-4 text-red-400" />
                     Log Out
-                  </Link>
+                  </button>
                 </div>
               </div>
             </>

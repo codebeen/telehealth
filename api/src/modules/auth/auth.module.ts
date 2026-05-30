@@ -19,7 +19,7 @@ import 'dotenv/config';
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'fallbackSecret',
       signOptions: {
-        expiresIn: (process.env.JWT_EXPIRES_IN || '15m') as any,
+        expiresIn: (process.env.JWT_EXPIRES_IN || '1h') as any,
       },
     }),
   ],
@@ -31,5 +31,6 @@ import 'dotenv/config';
       useClass: BcryptEncryptionService,
     },
   ],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

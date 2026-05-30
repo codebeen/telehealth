@@ -7,7 +7,7 @@ model Appointment {
   id                     String            @id @default(uuid()) @db.Uuid
   patientId              String            @map("patient_id") @db.Uuid
   doctorId               String            @map("doctor_id") @db.Uuid
-  scheduleId             String            @unique @map("schedule_id") @db.Uuid
+  scheduleId             String            @map("schedule_id") @db.Uuid
   appointmentDate        DateTime          @map("appointment_date") @db.Date
   startTime              DateTime          @map("start_time") @db.Time()
   endTime                DateTime          @map("end_time") @db.Time()
@@ -30,6 +30,7 @@ model Appointment {
   medicalRecord        MedicalRecord?
   notifications        Notification[]
 
+  @@index([scheduleId])
   @@map("appointments")
 }
 

@@ -1,3 +1,5 @@
+import api from '@/lib/api';
+import { getCurrentPatientId } from '@/modules/patient/utils/currentPatient';
 import { PatientAppointment } from '../types/appointment';
 
 // Helper to calculate dynamic dates relative to today
@@ -13,9 +15,41 @@ export const getDisplayDateFormatted = (dateStr: string): string => {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 };
 
+export async function fetchPatientAppointments(): Promise<PatientAppointment[]> {
+  const patientId = getCurrentPatientId();
+  const response = await api.get<PatientAppointment[]>(`/appointments/patient/${patientId}`);
+  return response.data;
+}
+
+export async function reschedulePatientAppointment(
+  appointmentId: string,
+  scheduleId: string,
+): Promise<PatientAppointment> {
+  const patientId = getCurrentPatientId();
+  const response = await api.patch<PatientAppointment>(
+    `/appointments/patient/${patientId}/${appointmentId}/reschedule`,
+    { scheduleId },
+  );
+  return response.data;
+}
+
+export async function cancelPatientAppointment(
+  appointmentId: string,
+  cancellationReason: string,
+): Promise<PatientAppointment> {
+  const patientId = getCurrentPatientId();
+  const response = await api.patch<PatientAppointment>(
+    `/appointments/patient/${patientId}/${appointmentId}/cancel`,
+    { cancellationReason },
+  );
+  return response.data;
+}
+
 export const initialAppointments: PatientAppointment[] = [
   {
     id: 'appt-1',
+    doctorId: 'doctor-1',
+    scheduleId: 'schedule-1',
     doctorName: 'Dr. Evelyn Adams',
     doctorSpecialty: 'Cardiology',
     doctorAvatar: 'EA',
@@ -29,6 +63,8 @@ export const initialAppointments: PatientAppointment[] = [
   },
   {
     id: 'appt-2',
+    doctorId: 'doctor-2',
+    scheduleId: 'schedule-2',
     doctorName: 'Dr. Sarah Connor',
     doctorSpecialty: 'General Medicine',
     doctorAvatar: 'SC',
@@ -42,6 +78,8 @@ export const initialAppointments: PatientAppointment[] = [
   },
   {
     id: 'appt-3',
+    doctorId: 'doctor-3',
+    scheduleId: 'schedule-3',
     doctorName: 'Dr. Diana Prince',
     doctorSpecialty: 'Dermatology',
     doctorAvatar: 'DP',
@@ -55,6 +93,8 @@ export const initialAppointments: PatientAppointment[] = [
   },
   {
     id: 'appt-4',
+    doctorId: 'doctor-4',
+    scheduleId: 'schedule-4',
     doctorName: 'Dr. Bruce Wayne',
     doctorSpecialty: 'Neurology',
     doctorAvatar: 'BW',

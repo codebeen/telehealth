@@ -2,6 +2,8 @@ export type AppointmentStatus = 'Upcoming' | 'Completed' | 'Cancelled';
 
 export interface PatientAppointment {
   id: string;
+  doctorId: string;
+  scheduleId: string;
   doctorName: string;
   doctorSpecialty: string;
   doctorAvatar: string;

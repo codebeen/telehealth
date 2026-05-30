@@ -5,13 +5,14 @@ import {
   Heart, Pill, ClipboardList, ShieldAlert, History
 } from 'lucide-react';
 import { BasicHealthProfile, ConsultationSessionRecord, PrescriptionRecord, MedicalHistoryItem } from '../types/medicalRecord';
+import { PatientAllergy } from '../services/allergy.service';
 
 interface MedicalProfileSummaryProps {
   profile: BasicHealthProfile;
   consultations: ConsultationSessionRecord[];
   prescriptions: PrescriptionRecord[];
   medicalHistory: MedicalHistoryItem[];
-  allergiesList: string[];
+  allergiesList: PatientAllergy[];
 }
 
 export default function MedicalProfileSummary({ 
@@ -34,8 +35,8 @@ export default function MedicalProfileSummary({
   const resolvedConditions = medicalHistory.filter(h => h.status === 'RESOLVED').length;
 
   // 4. Allergies & Vitals Stats
-  const totalAllergies = profile.allergies.length;
-  const bloodType = profile.bloodType;
+  const totalAllergies = allergiesList.length;
+  const allergyNames = allergiesList.map((a) => a.name).join(', ');
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-300">
@@ -84,8 +85,8 @@ export default function MedicalProfileSummary({
         <div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none">Allergies & Blood</p>
           <p className="text-sm font-extrabold text-slate-900 mt-1.5">{totalAllergies} Allergy{totalAllergies === 1 ? '' : 'ies'}</p>
-          <p className="text-[10px] font-semibold text-slate-500 mt-0.5 truncate max-w-[160px]" title={allergiesList.join(', ') || 'None'}>
-            Allergies: {allergiesList.join(', ') || 'None'}
+          <p className="text-[10px] font-semibold text-slate-500 mt-0.5 truncate max-w-[160px]" title={allergyNames || 'None'}>
+            Allergies: {allergyNames || 'None'}
           </p>
         </div>
       </div>

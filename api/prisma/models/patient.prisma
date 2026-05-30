@@ -20,8 +20,9 @@ model Patient {
   user           User           @relation(fields: [userId], references: [id])
   profileDetails ProfileDetails @relation(fields: [profileDetailsId], references: [id])
   medicalHistories PatientMedicalHistory[]
-  appointments   Appointment[]
-  medicalRecords MedicalRecord[]
+  allergies        PatientAllergy[]
+  appointments     Appointment[]
+  medicalRecords   MedicalRecord[]
 
   @@map("patients")
 }

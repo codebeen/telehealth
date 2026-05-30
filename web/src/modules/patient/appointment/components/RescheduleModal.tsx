@@ -1,12 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { X, Calendar, Clock, AlertCircle, Sunrise, Sunset, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { PatientAppointment } from '../types/appointment';
 import { getDisplayDateFormatted } from '../services/appointmentService';
+import { fetchDoctors } from '@/modules/patient/doctor-discovery/services/doctorService';
+import { DaySchedule, TimeSlot } from '@/modules/patient/doctor-discovery/types/doctor';
 
 interface RescheduleModalProps {
   appointment: PatientAppointment;
   onClose: () => void;
-  onConfirm: (newDate: string, newStart: string, newEnd: string) => void;
+  onConfirm: (scheduleId: string) => Promise<PatientAppointment>;
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -21,13 +23,6 @@ const formatKey = (d: Date) =>
 const today = new Date();
 today.setHours(0, 0, 0, 0);
 
-interface RescheduleSlot {
-  id: string;
-  start: string;
-  end: string;
-  isBooked: boolean;
-}
-
 export default function RescheduleModal({
   appointment,
   onClose,
@@ -36,8 +31,37 @@ export default function RescheduleModal({
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string>(formatKey(today));
-  const [selectedSlot, setSelectedSlot] = useState<RescheduleSlot | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [bookingStep, setBookingStep] = useState<'browse' | 'confirming' | 'success'>('browse');
+  const [doctorSchedule, setDoctorSchedule] = useState<DaySchedule[]>([]);
+  const [updatedAppointment, setUpdatedAppointment] = useState<PatientAppointment | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadDoctorSchedule = async () => {
+      try {
+        const doctors = await fetchDoctors();
+        const doctor = doctors.find((item) => item.id === appointment.doctorId);
+
+        if (isMounted) {
+          setDoctorSchedule(doctor?.schedule ?? []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch doctor schedule for reschedule:', err);
+        if (isMounted) {
+          setError('We could not load this doctor availability right now.');
+        }
+      }
+    };
+
+    loadDoctorSchedule();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [appointment.doctorId]);
 
   // Month navigation
   const isPrevMonthDisabled = viewYear < today.getFullYear() || 
@@ -61,27 +85,9 @@ export default function RescheduleModal({
     }
   };
 
-  // Generate mock ranges for future dates (prevent booking weekends)
-  const slotsForSelectedDate = useMemo((): RescheduleSlot[] => {
-    const [y, m, d] = selectedDate.split('-').map(Number);
-    const date = new Date(y, m - 1, d);
-    const dayOfWeek = date.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-    if (isWeekend) return [];
-
-    const isTuesdayOrThursday = dayOfWeek === 2 || dayOfWeek === 4;
-    
-    // We construct 6 time range slots
-    return [
-      { id: 'rs-1', start: '09:00 AM', end: '09:30 AM', isBooked: isTuesdayOrThursday },
-      { id: 'rs-2', start: '10:00 AM', end: '10:30 AM', isBooked: false },
-      { id: 'rs-3', start: '11:30 AM', end: '12:00 PM', isBooked: !isTuesdayOrThursday },
-      { id: 'rs-4', start: '02:00 PM', end: '02:30 PM', isBooked: false },
-      { id: 'rs-5', start: '03:30 PM', end: '04:00 PM', isBooked: isTuesdayOrThursday },
-      { id: 'rs-6', start: '04:30 PM', end: '05:00 PM', isBooked: false },
-    ];
-  }, [selectedDate]);
+  const slotsForSelectedDate = useMemo(() => {
+    return doctorSchedule.find((day) => day.date === selectedDate)?.slots ?? [];
+  }, [doctorSchedule, selectedDate]);
 
   const dateFormatted = getDisplayDateFormatted(selectedDate);
   const morningSlots = slotsForSelectedDate.filter(s => s.start.includes('AM'));
@@ -91,29 +97,39 @@ export default function RescheduleModal({
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfMonth = new Date(viewYear, viewMonth, 1).getDay();
 
-  const handleSelectSlot = (slot: RescheduleSlot) => {
+  const handleSelectSlot = (slot: TimeSlot) => {
     if (slot.isBooked) return;
     setSelectedSlot(slot);
+    setError(null);
   };
 
   const handleDateSelect = (dateStr: string) => {
     setSelectedDate(dateStr);
     setSelectedSlot(null);
+    setError(null);
   };
 
-  const handleConfirmReschedule = () => {
+  const handleConfirmReschedule = async () => {
     if (!selectedSlot) return;
     setBookingStep('confirming');
 
-    // Simulate API delay
-    setTimeout(() => {
+    try {
+      const updated = await onConfirm(selectedSlot.id);
+      setUpdatedAppointment(updated);
       setBookingStep('success');
-    }, 1500);
+    } catch (err: any) {
+      console.error('Failed to reschedule appointment:', err);
+      setError(
+        err?.response?.data?.message ||
+          'We could not reschedule this appointment. Please choose another slot.',
+      );
+      setBookingStep('browse');
+    }
   };
 
   const handleDone = () => {
-    if (!selectedSlot) return;
-    onConfirm(selectedDate, selectedSlot.start, selectedSlot.end);
+    if (!updatedAppointment) return;
+    onClose();
   };
 
   return (
@@ -255,6 +271,8 @@ export default function RescheduleModal({
                     cellDate.setHours(0, 0, 0, 0);
                     const isPast = cellDate < today;
                     const isToday = formatKey(today) === dateKey;
+                    const hasSlots = (doctorSchedule.find((daySchedule) => daySchedule.date === dateKey)?.slots ?? [])
+                      .some((slot) => !slot.isBooked);
 
                     return (
                       <button
@@ -272,6 +290,11 @@ export default function RescheduleModal({
                         }`}
                       >
                         {day}
+                        {!isPast && hasSlots && (
+                          <span className={`absolute bottom-1 h-1 w-1 rounded-full ${
+                            isSelected ? 'bg-white' : 'bg-accent'
+                          }`} />
+                        )}
                       </button>
                     );
                   })}
@@ -355,7 +378,14 @@ export default function RescheduleModal({
                 {slotsForSelectedDate.length === 0 && (
                   <div className="flex flex-col items-center justify-center text-center p-6 bg-slate-50 rounded-2xl border border-slate-100">
                     <AlertCircle className="h-6 w-6 text-slate-300 mb-2" />
-                    <p className="text-xs font-bold text-slate-400">No time slots available for weekends</p>
+                    <p className="text-xs font-bold text-slate-400">No available backend slots for this day</p>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="flex items-start gap-2 rounded-2xl border border-rose-100 bg-rose-50 p-3 text-[11px] font-bold text-rose-500">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>{error}</span>
                   </div>
                 )}
               </div>

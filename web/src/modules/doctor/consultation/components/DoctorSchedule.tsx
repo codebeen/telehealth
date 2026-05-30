@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, CalendarCheck, Save, RotateCcw, AlertTriangle, Settings2, RefreshCw } from 'lucide-react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, Clock, CalendarCheck, Save, RotateCcw, AlertTriangle, CalendarRange } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
-import { ScheduleTemplateModal, buildDefaultTemplate, WeekTemplate } from './ScheduleTemplateModal';
+import { 
+  getScheduleSlots, 
+  saveScheduleSlots 
+} from '../services/schedule.service';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,11 +32,34 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-const DEFAULT_TIME_RANGE = (): TimeRange => ({
+const DEFAULT_START_HOUR = 9;
+const DEFAULT_END_HOUR = 17;
+
+/** Default availability: 9 AM – 5 PM in 1-hour slots */
+const buildDefaultTimeSlots = (): TimeRange[] =>
+  Array.from({ length: DEFAULT_END_HOUR - DEFAULT_START_HOUR }, (_, i) => {
+    const hour = DEFAULT_START_HOUR + i;
+    return {
+      id: crypto.randomUUID(),
+      start: `${String(hour).padStart(2, '0')}:00`,
+      end: `${String(hour + 1).padStart(2, '0')}:00`,
+    };
+  });
+
+const buildSingleHourSlot = (startHour = DEFAULT_START_HOUR): TimeRange => ({
   id: crypto.randomUUID(),
-  start: '09:00',
-  end: '17:00',
+  start: `${String(startHour).padStart(2, '0')}:00`,
+  end: `${String(startHour + 1).padStart(2, '0')}:00`,
 });
+
+const cloneTimeRanges = (ranges: TimeRange[]): TimeRange[] =>
+  ranges.map((range) => ({ ...range, id: crypto.randomUUID() }));
+
+const WEEKDAY_PRESETS = {
+  weekdays: [1, 2, 3, 4, 5],
+  weekends: [0, 6],
+  all: [0, 1, 2, 3, 4, 5, 6],
+} as const;
 
 const formatKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -86,34 +112,6 @@ const getOverlappingIds = (ranges: TimeRange[]): Set<string> => {
   return overlapping;
 };
 
-// ─── Seed: pre-populate a realistic weekly template for demo purposes ─────────
-const buildInitialSchedule = (): ScheduleMap => {
-  const sched: ScheduleMap = {};
-  const start = new Date(today);
-  start.setDate(start.getDate() - start.getDay()); // start of this week (Sunday)
-
-  for (let w = 0; w < 8; w++) {
-    for (let d = 0; d < 7; d++) {
-      const date = new Date(start);
-      date.setDate(start.getDate() + w * 7 + d);
-      const key = formatKey(date);
-      const dow = date.getDay(); // 0=Sun, 6=Sat
-      const isWeekday = dow >= 1 && dow <= 5;
-      const isThursday = dow === 4;
-
-      if (isWeekday) {
-        sched[key] = {
-          available: true,
-          timeRanges: isThursday
-            ? [{ id: crypto.randomUUID(), start: '09:00', end: '13:00' }]
-            : [{ id: crypto.randomUUID(), start: '09:00', end: '18:00' }],
-        };
-      }
-    }
-  }
-  return sched;
-};
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 interface TimeRangeRowProps {
@@ -126,8 +124,6 @@ interface TimeRangeRowProps {
 }
 
 function TimeRangeRow({ range, index, canDelete, isOverlapping, onChange, onDelete }: TimeRangeRowProps) {
-  const slotStatus = range.isUnavailable ? 'unavailable' : 'available';
-  
   return (
     <div className="flex items-center gap-2 group">
       <span className="text-[10px] font-bold text-slate-400 w-4 shrink-0">{index + 1}.</span>
@@ -191,10 +187,15 @@ export default function DoctorSchedule() {
   const [viewYear, setViewYear]     = useState(today.getFullYear());
   const [viewMonth, setViewMonth]   = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string>(formatKey(today));
-  const [schedule, setSchedule]     = useState<ScheduleMap>(buildInitialSchedule);
+  const [schedule, setSchedule]     = useState<ScheduleMap>({});
   const [saved, setSaved]           = useState(false);
-  const [template, setTemplate]     = useState<WeekTemplate>(buildDefaultTemplate);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [isSaving, setIsSaving]     = useState(false);
+  const [isLoading, setIsLoading]   = useState(false);
+  const [bulkWeekdays, setBulkWeekdays] = useState<Set<number>>(
+    () => new Set(WEEKDAY_PRESETS.weekdays),
+  );
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
+  const [bulkApplied, setBulkApplied]   = useState(false);
 
   // ── Calendar helpers ───────────────────────────────────────────────────────
 
@@ -216,6 +217,31 @@ export default function DoctorSchedule() {
     setSelectedDate(formatKey(today));
   };
 
+  // Load slots when visible month/year changes
+  useEffect(() => {
+    const loadSlots = async () => {
+      setIsLoading(true);
+      try {
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const startDateStr = `${viewYear}-${pad(viewMonth + 1)}-01`;
+        const endDateStr = `${viewYear}-${pad(viewMonth + 1)}-${pad(daysInMonth)}`;
+        
+        const backendSlots = await getScheduleSlots(startDateStr, endDateStr);
+        if (backendSlots && Object.keys(backendSlots).length > 0) {
+          setSchedule(prev => ({
+            ...prev,
+            ...backendSlots,
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load schedule slots:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadSlots();
+  }, [viewYear, viewMonth, daysInMonth]);
+
   // ── Schedule mutations ─────────────────────────────────────────────────────
 
   const getDay = useCallback((key: string): DaySchedule => (
@@ -226,37 +252,27 @@ export default function DoctorSchedule() {
     setSchedule(prev => {
       const current = prev[key] ?? { available: false, timeRanges: [] };
       if (!current.available) {
-        // Auto-fill from template for that day-of-week if no custom slots yet
-        const [y, m, d] = key.split('-').map(Number);
-        const dow = new Date(y, m - 1, d).getDay();
-        const templateDay = template[dow];
-        const defaultRanges = templateDay.available && templateDay.timeRanges.length
-          ? templateDay.timeRanges.map(r => ({ ...r, id: crypto.randomUUID() }))
-          : [DEFAULT_TIME_RANGE()];
-        const ranges = current.timeRanges.length ? current.timeRanges : defaultRanges;
+        const ranges = current.timeRanges.length ? current.timeRanges : buildDefaultTimeSlots();
         return { ...prev, [key]: { available: true, timeRanges: ranges } };
       }
       return { ...prev, [key]: { ...current, available: false } };
     });
   };
 
-  const applyTemplateToDate = (key: string) => {
-    const [y, m, d] = key.split('-').map(Number);
-    const dow = new Date(y, m - 1, d).getDay();
-    const templateDay = template[dow];
-    const ranges = templateDay.available && templateDay.timeRanges.length
-      ? templateDay.timeRanges.map(r => ({ ...r, id: crypto.randomUUID() }))
-      : [DEFAULT_TIME_RANGE()];
-    setSchedule(prev => ({
-      ...prev,
-      [key]: { available: true, timeRanges: ranges },
-    }));
-  };
-
   const addTimeRange = (key: string) => {
     setSchedule(prev => {
       const current = getDay(key);
-      return { ...prev, [key]: { ...current, timeRanges: [...current.timeRanges, DEFAULT_TIME_RANGE()] } };
+      const lastRange = current.timeRanges[current.timeRanges.length - 1];
+      const nextStartHour = lastRange
+        ? Math.min(toMinutes(lastRange.end) / 60, 23)
+        : DEFAULT_START_HOUR;
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          timeRanges: [...current.timeRanges, buildSingleHourSlot(nextStartHour)],
+        },
+      };
     });
   };
 
@@ -281,9 +297,151 @@ export default function DoctorSchedule() {
     });
   };
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSaveTimeSlots = async () => {
+    const day = getDay(selectedDate);
+    const dayHasOverlap = getOverlappingIds(day.timeRanges).size > 0;
+    if (!day.available || dayHasOverlap) return;
+
+    setIsSaving(true);
+    try {
+      await saveScheduleSlots({
+        [selectedDate]: {
+          available: true,
+          timeRanges: day.timeRanges,
+        },
+      });
+
+      const backendSlots = await getScheduleSlots(selectedDate, selectedDate);
+      if (backendSlots && Object.keys(backendSlots).length > 0) {
+        setSchedule((prev) => ({ ...prev, ...backendSlots }));
+      }
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      console.error('Failed to save schedule slots:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getMonthDateKeysForBulk = useCallback(
+    (weekdays: Set<number>) => {
+      const keys: string[] = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(viewYear, viewMonth, day);
+        if (date < today) continue;
+        if (!weekdays.has(date.getDay())) continue;
+        keys.push(formatKey(date));
+      }
+      return keys;
+    },
+    [daysInMonth, viewMonth, viewYear],
+  );
+
+  const getBulkTemplateRanges = useCallback((): TimeRange[] => {
+    const day = getDay(selectedDate);
+    if (day.available && day.timeRanges.length > 0) {
+      return cloneTimeRanges(day.timeRanges);
+    }
+    return buildDefaultTimeSlots();
+  }, [getDay, selectedDate]);
+
+  const toggleBulkWeekday = (dow: number) => {
+    setBulkWeekdays((prev) => {
+      const next = new Set(prev);
+      if (next.has(dow)) next.delete(dow);
+      else next.add(dow);
+      return next;
+    });
+  };
+
+  const applyBulkPreset = (preset: keyof typeof WEEKDAY_PRESETS) => {
+    setBulkWeekdays(new Set(WEEKDAY_PRESETS[preset]));
+  };
+
+  const handleBulkApply = async (saveToDb: boolean) => {
+    if (bulkWeekdays.size === 0) return;
+
+    const targetKeys = getMonthDateKeysForBulk(bulkWeekdays);
+    if (targetKeys.length === 0) return;
+
+    const templateRanges = getBulkTemplateRanges();
+    const updates: ScheduleMap = {};
+    for (const key of targetKeys) {
+      updates[key] = {
+        available: true,
+        timeRanges: cloneTimeRanges(templateRanges),
+      };
+    }
+
+    setSchedule((prev) => ({ ...prev, ...updates }));
+
+    if (!saveToDb) {
+      setBulkApplied(true);
+      setTimeout(() => setBulkApplied(false), 2000);
+      return;
+    }
+
+    setIsBulkSaving(true);
+    try {
+      await saveScheduleSlots(updates);
+
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const startDateStr = `${viewYear}-${pad(viewMonth + 1)}-01`;
+      const endDateStr = `${viewYear}-${pad(viewMonth + 1)}-${pad(daysInMonth)}`;
+      const backendSlots = await getScheduleSlots(startDateStr, endDateStr);
+      if (backendSlots && Object.keys(backendSlots).length > 0) {
+        setSchedule((prev) => ({ ...prev, ...backendSlots }));
+      }
+
+      setBulkApplied(true);
+      setTimeout(() => setBulkApplied(false), 2000);
+    } catch (err) {
+      console.error('Failed to bulk save schedule slots:', err);
+    } finally {
+      setIsBulkSaving(false);
+    }
+  };
+
+  const handleBulkBlock = async (saveToDb: boolean) => {
+    if (bulkWeekdays.size === 0) return;
+
+    const targetKeys = getMonthDateKeysForBulk(bulkWeekdays);
+    if (targetKeys.length === 0) return;
+
+    const updates: ScheduleMap = {};
+    for (const key of targetKeys) {
+      updates[key] = { available: false, timeRanges: [] };
+    }
+
+    setSchedule((prev) => ({ ...prev, ...updates }));
+
+    if (!saveToDb) {
+      setBulkApplied(true);
+      setTimeout(() => setBulkApplied(false), 2000);
+      return;
+    }
+
+    setIsBulkSaving(true);
+    try {
+      await saveScheduleSlots(updates);
+
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const startDateStr = `${viewYear}-${pad(viewMonth + 1)}-01`;
+      const endDateStr = `${viewYear}-${pad(viewMonth + 1)}-${pad(daysInMonth)}`;
+      const backendSlots = await getScheduleSlots(startDateStr, endDateStr);
+      if (backendSlots && Object.keys(backendSlots).length > 0) {
+        setSchedule((prev) => ({ ...prev, ...backendSlots }));
+      }
+
+      setBulkApplied(true);
+      setTimeout(() => setBulkApplied(false), 2000);
+    } catch (err) {
+      console.error('Failed to bulk block schedule:', err);
+    } finally {
+      setIsBulkSaving(false);
+    }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -303,12 +461,12 @@ export default function DoctorSchedule() {
     return getDay(key).available;
   }).filter(Boolean).length;
 
-  // Block save if any day has overlapping slots
-  const anyDayHasOverlap = useMemo(() => {
-    return Object.values(schedule).some(
-      (day) => day.available && getOverlappingIds(day.timeRanges).size > 0
-    );
-  }, [schedule]);
+  const bulkTargetCount = useMemo(
+    () => getMonthDateKeysForBulk(bulkWeekdays).length,
+    [bulkWeekdays, getMonthDateKeysForBulk],
+  );
+
+  const bulkUsesSelectedDayTemplate = selectedDay.available && selectedDay.timeRanges.length > 0;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -316,40 +474,13 @@ export default function DoctorSchedule() {
         title="Schedule Management"
         description="Manage your availability and consultation time slots."
         action={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowTemplateModal(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              <Settings2 className="h-3.5 w-3.5" /> Configure Defaults
-            </button>
-            <button
-              type="button"
-              onClick={goToToday}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              <RotateCcw className="h-3.5 w-3.5" /> Today
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={anyDayHasOverlap}
-              className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md transition-all duration-200 ${
-                anyDayHasOverlap
-                  ? 'bg-slate-300 shadow-none cursor-not-allowed'
-                  : saved
-                    ? 'bg-accent shadow-accent/20'
-                    : 'bg-primary shadow-primary/25 hover:bg-primary-dark hover:scale-[1.02]'
-              }`}
-            >
-              {saved ? (
-                <><CalendarCheck className="h-3.5 w-3.5" /> Saved!</>
-              ) : (
-                <><Save className="h-3.5 w-3.5" /> Save Schedule</>
-              )}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={goToToday}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Today
+          </button>
         }
       />
 
@@ -371,6 +502,106 @@ export default function DoctorSchedule() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Bulk Availability */}
+      <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-xs">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-extrabold text-brand-text flex items-center gap-1.5">
+              <CalendarRange className="h-4 w-4 text-primary" />
+              Bulk Availability
+            </p>
+            <p className="text-[10px] text-slate-400 font-medium max-w-xl">
+              Select days of the week, then apply to all matching dates in{' '}
+              <span className="font-bold text-slate-500">{MONTHS[viewMonth]} {viewYear}</span>.
+              Past dates are skipped automatically.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {([
+              { label: 'Weekdays', preset: 'weekdays' as const },
+              { label: 'Weekends', preset: 'weekends' as const },
+              { label: 'All days', preset: 'all' as const },
+            ]).map(({ label, preset }) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => applyBulkPreset(preset)}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {DAYS.map((label, dow) => {
+            const selected = bulkWeekdays.has(dow);
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => toggleBulkWeekday(dow)}
+                className={`h-9 w-9 rounded-xl text-[10px] font-extrabold transition-all ${
+                  selected
+                    ? 'bg-primary text-white shadow-sm shadow-primary/20'
+                    : 'border border-slate-200 bg-white text-slate-400 hover:border-primary/30 hover:text-primary'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[10px] font-semibold text-slate-500">
+            {bulkWeekdays.size === 0 ? (
+              'Select at least one day of the week.'
+            ) : bulkTargetCount === 0 ? (
+              `No upcoming ${DAYS.filter((_, i) => bulkWeekdays.has(i)).join(', ')} dates left in ${MONTHS[viewMonth]}.`
+            ) : (
+              <>
+                <span className="font-bold text-brand-text">{bulkTargetCount}</span>{' '}
+                {bulkTargetCount === 1 ? 'date' : 'dates'} will be updated
+                {bulkUsesSelectedDayTemplate
+                  ? ` using the selected day\u2019s time slots`
+                  : ' with default 9 AM \u2013 5 PM hourly slots'}
+                .
+              </>
+            )}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleBulkApply(false)}
+              disabled={bulkWeekdays.size === 0 || bulkTargetCount === 0 || isBulkSaving}
+              className="rounded-xl border border-primary/20 bg-primary-light px-3.5 py-2 text-[10px] font-bold text-primary hover:bg-primary/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Apply Availability
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBulkApply(true)}
+              disabled={bulkWeekdays.size === 0 || bulkTargetCount === 0 || isBulkSaving}
+              className="rounded-xl bg-primary px-3.5 py-2 text-[10px] font-bold text-white shadow-sm shadow-primary/20 hover:bg-primary-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {isBulkSaving ? 'Saving...' : bulkApplied ? 'Applied!' : 'Apply & Save'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleBulkBlock(true)}
+              disabled={bulkWeekdays.size === 0 || bulkTargetCount === 0 || isBulkSaving}
+              className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-[10px] font-bold text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Block & Save
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Main Grid: Calendar + Detail Panel */}
@@ -498,14 +729,6 @@ export default function DoctorSchedule() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => applyTemplateToDate(selectedDate)}
-                    title="Reset to your configured default template for this day"
-                    className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors"
-                  >
-                    <RefreshCw className="h-3 w-3" /> Apply template
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => addTimeRange(selectedDate)}
                     disabled={hasOverlap}
                     title={hasOverlap ? 'Resolve overlapping slots before adding a new one' : undefined}
@@ -516,6 +739,26 @@ export default function DoctorSchedule() {
                     }`}
                   >
                     <Plus className="h-3 w-3" /> Add slot
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveTimeSlots}
+                    disabled={hasOverlap || isSaving}
+                    className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-white transition-all ${
+                      hasOverlap || isSaving
+                        ? 'bg-slate-300 cursor-not-allowed'
+                        : saved
+                          ? 'bg-accent'
+                          : 'bg-primary hover:bg-primary-dark'
+                    }`}
+                  >
+                    {isSaving ? (
+                      <>Saving...</>
+                    ) : saved ? (
+                      <><CalendarCheck className="h-3 w-3" /> Saved!</>
+                    ) : (
+                      <><Save className="h-3 w-3" /> Save Time Slots</>
+                    )}
                   </button>
                 </div>
               </div>
@@ -592,17 +835,6 @@ export default function DoctorSchedule() {
         </div>
       </div>
 
-      {/* Default Schedule Template Modal */}
-      {showTemplateModal && (
-        <ScheduleTemplateModal
-          template={template}
-          onSave={(updated) => {
-            setTemplate(updated);
-            setShowTemplateModal(false);
-          }}
-          onClose={() => setShowTemplateModal(false)}
-        />
-      )}
     </div>
   );
 }

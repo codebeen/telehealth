@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { X, Calendar, Clock, AlertCircle, CheckCircle2, Sunrise, Sunset, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Doctor, DaySchedule, TimeSlot } from '../types/doctor';
-import { getDisplayDateFormatted } from '../services/doctorService';
+import { bookConsultation, getDisplayDateFormatted } from '../services/doctorService';
 import Link from 'next/link';
 
 interface DoctorScheduleModalProps {
   doctor: Doctor;
   onClose: () => void;
+  onBooked?: (doctorId: string, scheduleId: string) => void;
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -21,12 +22,13 @@ const formatKey = (d: Date) =>
 const today = new Date();
 today.setHours(0, 0, 0, 0);
 
-export default function DoctorScheduleModal({ doctor, onClose }: DoctorScheduleModalProps) {
+export default function DoctorScheduleModal({ doctor, onClose, onBooked }: DoctorScheduleModalProps) {
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string>(formatKey(today));
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [bookingStep, setBookingStep] = useState<'browse' | 'confirming' | 'success'>('browse');
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   const isPrevMonthDisabled = viewYear < today.getFullYear() || 
     (viewYear === today.getFullYear() && viewMonth <= today.getMonth());
@@ -50,54 +52,12 @@ export default function DoctorScheduleModal({ doctor, onClose }: DoctorScheduleM
     }
   };
 
-  // Helper to retrieve/generate schedule dynamically for any date
+  // Retrieve only backend-configured schedule slots for the selected date.
   const currentDaySchedule = useMemo((): DaySchedule => {
     const found = doctor.schedule.find(s => s.date === selectedDate);
     if (found) return found;
 
-    // Generate pseudo-random weekday range slots for future dates not pre-mocked
-    const [y, m, d] = selectedDate.split('-').map(Number);
-    const date = new Date(y, m - 1, d);
-    const dayOfWeek = date.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-    if (isWeekend) {
-      return { date: selectedDate, slots: [] };
-    }
-
-    const slots: TimeSlot[] = [];
-    const isTuesdayOrThursday = dayOfWeek === 2 || dayOfWeek === 4;
-    const startHour = isTuesdayOrThursday ? 10 : 9;
-    const endHour = isTuesdayOrThursday ? 16 : 17;
-    let index = 0;
-
-    for (let h = startHour; h < endHour; h++) {
-      if (h === 12 || h === 13) continue; // Lunch break
-
-      const formatTime = (hour: number, min: number) => {
-        const period = hour >= 12 ? 'PM' : 'AM';
-        const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-        return `${displayHour}:${String(min).padStart(2, '0')} ${period}`;
-      };
-
-      slots.push({
-        id: `${selectedDate}-${h}-00-${index}`,
-        start: formatTime(h, 0),
-        end: formatTime(h, 30),
-        isBooked: (index + dayOfWeek) % 3 === 0
-      });
-      index++;
-
-      slots.push({
-        id: `${selectedDate}-${h}-30-${index}`,
-        start: formatTime(h, 30),
-        end: formatTime(h + 1, 0),
-        isBooked: (index + dayOfWeek) % 4 === 0
-      });
-      index++;
-    }
-
-    return { date: selectedDate, slots };
+    return { date: selectedDate, slots: [] };
   }, [selectedDate, doctor.schedule]);
 
   const dateFormatted = getDisplayDateFormatted(selectedDate);
@@ -109,21 +69,34 @@ export default function DoctorScheduleModal({ doctor, onClose }: DoctorScheduleM
   const handleSelectSlot = (slot: TimeSlot) => {
     if (slot.isBooked) return;
     setSelectedSlot(slot);
+    setBookingError(null);
   };
 
   const handleDateSelect = (dateStr: string) => {
     setSelectedDate(dateStr);
     setSelectedSlot(null); // Reset selection
+    setBookingError(null);
   };
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     if (!selectedSlot) return;
     setBookingStep('confirming');
-    
-    // Simulate API delay
-    setTimeout(() => {
+
+    try {
+      await bookConsultation({
+        doctorId: doctor.id,
+        scheduleId: selectedSlot.id,
+      });
+      onBooked?.(doctor.id, selectedSlot.id);
       setBookingStep('success');
-    }, 1500);
+    } catch (err: any) {
+      console.error('Failed to book consultation:', err);
+      setBookingError(
+        err?.response?.data?.message ||
+          'We could not book this consultation. Please choose another slot and try again.',
+      );
+      setBookingStep('browse');
+    }
   };
 
   // Calendar Helpers
@@ -135,12 +108,7 @@ export default function DoctorScheduleModal({ doctor, onClose }: DoctorScheduleM
     const found = doctor.schedule.find(s => s.date === dateStr);
     if (found) return found.slots.filter(s => !s.isBooked).length;
 
-    // Pseudo-random counts for dynamic slots
-    const [y, m, d] = dateStr.split('-').map(Number);
-    const date = new Date(y, m - 1, d);
-    const dayOfWeek = date.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) return 0;
-    return dayOfWeek === 2 || dayOfWeek === 4 ? 6 : 8; // weekday slots estimate
+    return 0;
   };
 
   return (
@@ -399,6 +367,13 @@ export default function DoctorScheduleModal({ doctor, onClose }: DoctorScheduleM
                   <div className="flex flex-col items-center justify-center text-center p-6 bg-slate-50 rounded-2xl border border-slate-100">
                     <AlertCircle className="h-6 w-6 text-slate-300 mb-2" />
                     <p className="text-xs font-bold text-slate-400">No time slots configured for this day</p>
+                  </div>
+                )}
+
+                {bookingError && (
+                  <div className="flex items-start gap-2 rounded-2xl border border-rose-100 bg-rose-50 p-3 text-[11px] font-bold text-rose-500">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>{bookingError}</span>
                   </div>
                 )}
               </div>

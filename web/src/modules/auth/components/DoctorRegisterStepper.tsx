@@ -187,6 +187,10 @@ export default function DoctorRegisterStepper() {
       };
       localStorage.setItem('registered_doctor_profile', JSON.stringify(registeredProfile));
 
+      // Save session credentials
+      localStorage.setItem('token', result.accessToken);
+      localStorage.setItem('user', JSON.stringify({ id: result.userId, email: result.email, role: result.role, doctorId: result.doctorId }));
+
       setIsSuccess(true);
 
       // Redirect to doctor dashboard after 2 seconds

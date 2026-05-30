@@ -1,23 +1,61 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import PageHeader from '@/components/shared/PageHeader';
 import AppointmentCard from './AppointmentCard';
 import AppointmentDetailsModal from './AppointmentDetailsModal';
 import RescheduleModal from './RescheduleModal';
 import CancelConfirmationModal from './CancelConfirmationModal';
-import { initialAppointments } from '../services/appointmentService';
+import {
+  cancelPatientAppointment,
+  fetchPatientAppointments,
+  reschedulePatientAppointment,
+} from '../services/appointmentService';
 import { PatientAppointment } from '../types/appointment';
 import { Calendar, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 export default function PatientAppointmentBooking() {
-  const [appointments, setAppointments] = useState<PatientAppointment[]>(initialAppointments);
+  const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Modal States
   const [selectedApptDetails, setSelectedApptDetails] = useState<PatientAppointment | null>(null);
   const [apptToReschedule, setApptToReschedule] = useState<PatientAppointment | null>(null);
   const [apptToCancel, setApptToCancel] = useState<PatientAppointment | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadAppointments = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await fetchPatientAppointments();
+
+        if (isMounted) {
+          setAppointments(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch patient appointments:', err);
+        if (isMounted) {
+          setAppointments([]);
+          setError('We could not load your appointments right now. Please try again shortly.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadAppointments();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Tab Filtering
   const filteredAppointments = appointments.filter(appt => {
@@ -29,32 +67,27 @@ export default function PatientAppointmentBooking() {
   });
 
   // Event Handlers
-  const handleRescheduleConfirm = (newDate: string, newStart: string, newEnd: string) => {
-    if (!apptToReschedule) return;
-    
+  const handleRescheduleConfirm = async (scheduleId: string) => {
+    if (!apptToReschedule) {
+      throw new Error('No appointment selected for rescheduling');
+    }
+
+    const updatedAppointment = await reschedulePatientAppointment(apptToReschedule.id, scheduleId);
     setAppointments(prev =>
-      prev.map(appt =>
-        appt.id === apptToReschedule.id
-          ? { ...appt, date: newDate, slotStart: newStart, slotEnd: newEnd }
-          : appt
-      )
+      prev.map(appt => appt.id === updatedAppointment.id ? updatedAppointment : appt)
     );
-    
-    setApptToReschedule(null);
+
+    return updatedAppointment;
   };
 
-  const handleCancelConfirm = (reason: string) => {
+  const handleCancelConfirm = async (reason: string) => {
     if (!apptToCancel) return;
 
+    const updatedAppointment = await cancelPatientAppointment(apptToCancel.id, reason);
     setAppointments(prev =>
-      prev.map(appt =>
-        appt.id === apptToCancel.id
-          ? { ...appt, status: 'Cancelled' as const, cancelReason: reason }
-          : appt
-      )
+      prev.map(appt => appt.id === updatedAppointment.id ? updatedAppointment : appt)
     );
 
-    setApptToCancel(null);
   };
 
   // Summary Counts
@@ -70,6 +103,12 @@ export default function PatientAppointmentBooking() {
         title="My Appointments" 
         description="Manage your upcoming video consultations, rescheduling, cancellations, and past sessions." 
       />
+
+      {error && (
+        <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-500">
+          {error}
+        </div>
+      )}
 
       {/* Summary stats strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -121,7 +160,29 @@ export default function PatientAppointmentBooking() {
         </div>
 
         {/* Card Grid */}
-        {filteredAppointments.length > 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-[260px] rounded-2xl border border-slate-100 bg-white p-5 shadow-xs animate-pulse"
+              >
+                <div className="flex gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-slate-100" />
+                  <div className="space-y-2 flex-1">
+                    <div className="h-3 w-2/3 rounded bg-slate-100" />
+                    <div className="h-2 w-1/2 rounded bg-slate-100" />
+                  </div>
+                </div>
+                <div className="mt-8 space-y-2">
+                  <div className="h-2 rounded bg-slate-100" />
+                  <div className="h-2 w-5/6 rounded bg-slate-100" />
+                  <div className="h-2 w-2/3 rounded bg-slate-100" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredAppointments.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredAppointments.map((appt) => (
               <AppointmentCard

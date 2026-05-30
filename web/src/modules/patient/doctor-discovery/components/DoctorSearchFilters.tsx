@@ -95,7 +95,7 @@ export default function DoctorSearchFilters({
             </span>
             <input
               type="text"
-              placeholder="Search by doctor name or symptoms..."
+              placeholder="Search by doctor name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="h-10 w-full rounded-xl bg-slate-50 pl-10 pr-4 text-xs font-semibold text-brand-text outline-hidden border border-transparent focus:border-primary/20 focus:bg-white transition-all"
@@ -134,13 +134,7 @@ export default function DoctorSearchFilters({
                   key={spec}
                   onClick={() => {
                     setSelectedSpecialty(spec);
-                    // Clear selectedNeedId if it doesn't match the clicked specialty
-                    const matchingNeed = medicalNeeds.find(n => n.specialty === spec);
-                    if (matchingNeed) {
-                      setSelectedNeedId(matchingNeed.id);
-                    } else {
-                      setSelectedNeedId(null);
-                    }
+                    setSelectedNeedId(null);
                   }}
                   className={`rounded-lg px-3.5 py-1.5 text-xs font-bold shrink-0 transition-colors cursor-pointer ${
                     isSelected 

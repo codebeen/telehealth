@@ -7,8 +7,8 @@ model DoctorSchedule {
   id           String         @id @default(uuid()) @db.Uuid
   doctorId     String         @map("doctor_id") @db.Uuid
   scheduleDate DateTime       @map("schedule_date") @db.Date
-  startTime    DateTime       @map("start_time") @db.Time()
-  endTime      DateTime       @map("end_time") @db.Time()
+  startTime    DateTime?      @map("start_time") @db.Time()
+  endTime      DateTime?      @map("end_time") @db.Time()
   status       ScheduleStatus @default(AVAILABLE)
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
@@ -16,7 +16,7 @@ model DoctorSchedule {
 
   // Relations
   doctor      Doctor       @relation(fields: [doctorId], references: [id])
-  appointment Appointment?
+  appointments Appointment[]
 
   @@map("doctor_schedules")
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   History, Pill, ClipboardList, ShieldAlert
 } from 'lucide-react';
@@ -11,6 +11,7 @@ import PrescriptionList from './PrescriptionList';
 import MedicalHistoryList from './MedicalHistoryList';
 import AllergiesList from './AllergiesList';
 import { MedicalHistoryItem } from '../types/medicalRecord';
+import { getPatientAllergies, PatientAllergy } from '../services/allergy.service';
 
 import { 
   mockHealthProfile, 
@@ -22,7 +23,19 @@ import {
 export default function PatientMedicalRecords() {
   const [activeTab, setActiveTab] = useState<'consultations' | 'prescriptions' | 'history' | 'allergies'>('consultations');
   const [medicalHistory, setMedicalHistory] = useState<MedicalHistoryItem[]>(mockMedicalHistory);
-  const [allergiesList, setAllergiesList] = useState<string[]>(mockHealthProfile.allergies);
+  const [allergiesList, setAllergiesList] = useState<PatientAllergy[]>([]);
+
+  useEffect(() => {
+    const loadAllergies = async () => {
+      try {
+        const allergies = await getPatientAllergies();
+        setAllergiesList(allergies);
+      } catch (err) {
+        console.error('Failed to load allergies:', err);
+      }
+    };
+    loadAllergies();
+  }, []);
 
   const tabs = [
     { id: 'consultations' as const, label: 'Consultations & Notes', icon: History },

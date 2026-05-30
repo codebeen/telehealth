@@ -24,9 +24,10 @@ interface SidebarProps {
   user: UserProfile;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
+  onLogout: () => void;
 }
 
-export default function Sidebar({ navigation, user, isSidebarOpen, setIsSidebarOpen }: SidebarProps) {
+export default function Sidebar({ navigation, user, isSidebarOpen, setIsSidebarOpen, onLogout }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -111,9 +112,14 @@ export default function Sidebar({ navigation, user, isSidebarOpen, setIsSidebarO
               {user.role}
             </span>
           </div>
-          <Link href="/" title="Log Out" className="text-slate-400 hover:text-rose-400 transition-colors p-1.5 rounded-lg hover:bg-white/10">
+          <button 
+            type="button" 
+            onClick={onLogout} 
+            title="Log Out" 
+            className="text-slate-400 hover:text-rose-400 transition-colors p-1.5 rounded-lg hover:bg-white/10 cursor-pointer"
+          >
             <LogOut className="h-4 w-4" />
-          </Link>
+          </button>
         </div>
       </div>
     </aside>

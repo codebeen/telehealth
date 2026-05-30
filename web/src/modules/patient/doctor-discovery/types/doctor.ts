@@ -19,9 +19,10 @@ export interface Review {
 }
 
 export interface Doctor {
-  id: number;
+  id: string;
   name: string;
   specialty: string;
+  specializations?: string[];
   experience: string;
   avatar: string;
   availability: string; // Text description e.g., "Today", "Tomorrow"
@@ -40,5 +41,6 @@ export interface MedicalNeed {
   label: string;
   iconName: string; // Lucide icon identifier
   specialty: string;
+  symptoms: string[];
   description: string;
 }

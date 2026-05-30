@@ -206,6 +206,7 @@ export default function PatientRegisterStepper() {
       bloodType: bloodType || undefined,
       emergencyContactName: emergencyContactName || undefined,
       emergencyContactNumber: emergencyContactNumber || undefined,
+      allergies: allergies.split(',').map((a) => a.trim()).filter(Boolean),
     };
 
     try {
@@ -223,6 +224,10 @@ export default function PatientRegisterStepper() {
         patientId: result.patientId,
       };
       localStorage.setItem('registered_patient_profile', JSON.stringify(registeredProfile));
+
+      // Save session credentials
+      localStorage.setItem('token', result.accessToken);
+      localStorage.setItem('user', JSON.stringify({ id: result.userId, email: result.email, role: result.role, patientId: result.patientId }));
       
       setIsSuccess(true);
       

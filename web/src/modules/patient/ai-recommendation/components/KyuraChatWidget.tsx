@@ -5,7 +5,7 @@ import {
   Sparkles, Send, BrainCircuit, User, Star, Clock, 
   DollarSign, ChevronRight, RefreshCw, X, MessageSquare
 } from 'lucide-react';
-import { mockDoctors } from '@/modules/patient/doctor-discovery/services/doctorService';
+import { fetchDoctors } from '@/modules/patient/doctor-discovery/services/doctorService';
 import { Doctor } from '@/modules/patient/doctor-discovery/types/doctor';
 import DoctorScheduleModal from '@/modules/patient/doctor-discovery/components/DoctorScheduleModal';
 
@@ -30,6 +30,7 @@ export default function KyuraChatWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([initialMessage]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctorForSchedule, setSelectedDoctorForSchedule] = useState<Doctor | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,6 +53,31 @@ export default function KyuraChatWidget() {
     }
   }, [messages, isTyping, isOpen]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    fetchDoctors()
+      .then((data) => {
+        if (isMounted) {
+          setDoctors(data);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to fetch doctors for Kyura recommendations:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const findDoctorBySpecialty = (specialty: string) => {
+    return doctors.find((doctor) => {
+      const doctorSpecialties = doctor.specializations?.length ? doctor.specializations : [doctor.specialty];
+      return doctorSpecialties.some((item) => item.toLowerCase() === specialty.toLowerCase());
+    });
+  };
+
   const matchDoctor = (query: string): Doctor[] => {
     const q = query.toLowerCase();
     const matched: Doctor[] = [];
@@ -61,7 +87,7 @@ export default function KyuraChatWidget() {
       q.includes('bp') || q.includes('pressure') || q.includes('palpitations') || 
       q.includes('breath') || q.includes('cardiology')
     ) {
-      const doc = mockDoctors.find(d => d.specialty === 'Cardiology');
+      const doc = findDoctorBySpecialty('Cardiology');
       if (doc) matched.push(doc);
     }
     if (
@@ -69,7 +95,7 @@ export default function KyuraChatWidget() {
       q.includes('acne') || q.includes('mole') || q.includes('itch') || 
       q.includes('hair') || q.includes('dermatology') || q.includes('dry')
     ) {
-      const doc = mockDoctors.find(d => d.specialty === 'Dermatology');
+      const doc = findDoctorBySpecialty('Dermatology');
       if (doc && !matched.includes(doc)) matched.push(doc);
     }
     if (
@@ -77,7 +103,7 @@ export default function KyuraChatWidget() {
       q.includes('pediatric') || q.includes('pediatrics') || q.includes('growth') ||
       q.includes('vaccination')
     ) {
-      const doc = mockDoctors.find(d => d.specialty === 'Pediatrics');
+      const doc = findDoctorBySpecialty('Pediatrics');
       if (doc && !matched.includes(doc)) matched.push(doc);
     }
     if (
@@ -85,7 +111,7 @@ export default function KyuraChatWidget() {
       q.includes('dizzy') || q.includes('numb') || q.includes('tremor') || 
       q.includes('brain') || q.includes('neurology') || q.includes('headache')
     ) {
-      const doc = mockDoctors.find(d => d.specialty === 'Neurology');
+      const doc = findDoctorBySpecialty('Neurology');
       if (doc && !matched.includes(doc)) matched.push(doc);
     }
     
@@ -96,7 +122,7 @@ export default function KyuraChatWidget() {
       q.includes('cold') || q.includes('throat') || q.includes('fatigue') || 
       q.includes('sore') || q.includes('allergy') || q.includes('general')
     ) {
-      const doc = mockDoctors.find(d => d.specialty === 'General Medicine');
+      const doc = findDoctorBySpecialty('General Medicine');
       if (doc && !matched.includes(doc)) matched.push(doc);
     }
 
@@ -127,7 +153,7 @@ export default function KyuraChatWidget() {
         const specialtiesList = Array.from(new Set(matched.map(d => d.specialty)));
         aiText = `Based on your symptoms, I suggest speaking with a specialist in ${specialtiesList.join(' or ')}. Here is the recommended practitioner for you:`;
       } else {
-        const genPractitioner = mockDoctors.find(d => d.specialty === 'General Medicine');
+        const genPractitioner = findDoctorBySpecialty('General Medicine');
         aiText = `I couldn't match those specific symptoms. I recommend starting with a general check-up. Here is our General Medicine practitioner:`;
         if (genPractitioner) matched.push(genPractitioner);
       }
@@ -150,6 +176,27 @@ export default function KyuraChatWidget() {
       handleSendMessage(inputText);
     }
   };
+
+  const handleBooked = (doctorId: string, scheduleId: string) => {
+    setDoctors((currentDoctors) =>
+      currentDoctors.map((doctor) => {
+        if (doctor.id !== doctorId) {
+          return doctor;
+        }
+
+        return {
+          ...doctor,
+          schedule: doctor.schedule.map((day) => ({
+            ...day,
+            slots: day.slots.map((slot) =>
+              slot.id === scheduleId ? { ...slot, isBooked: true } : slot,
+            ),
+          })),
+        };
+      }),
+    );
+  };
+
 
   return (
     <>
@@ -357,6 +404,7 @@ export default function KyuraChatWidget() {
         <DoctorScheduleModal 
           doctor={selectedDoctorForSchedule} 
           onClose={() => setSelectedDoctorForSchedule(null)} 
+          onBooked={handleBooked}
         />
       )}
     </>

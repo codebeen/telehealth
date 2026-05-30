@@ -9,6 +9,7 @@ import { DoctorRepository } from '../doctors/repositories/doctor.repository';
 import { RegisterPatientDto } from './dto/register-patient.dto';
 import { RegisterDoctorDto } from './dto/register-doctor.dto';
 import { LoginDto } from './dto/login.dto';
+import { AllergiesService } from '../patients/allergies.service';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +20,7 @@ export class AuthService {
     private readonly patientRepository: PatientRepository,
     private readonly doctorRepository: DoctorRepository,
     private readonly jwtService: JwtService,
+    private readonly allergiesService: AllergiesService,
   ) {}
 
   async registerPatient(dto: RegisterPatientDto) {
@@ -32,7 +34,7 @@ export class AuthService {
     const passwordHash = await this.encryptionService.hash(dto.password);
 
     // 3. Database transaction for atomic creation
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Create user
       const user = await this.userRepository.create(
         {
@@ -87,6 +89,10 @@ export class AuthService {
         tx,
       );
 
+      if (dto.allergies?.length) {
+        await this.allergiesService.createManyForPatient(patient.id, dto.allergies, tx);
+      }
+
       return {
         userId: user.id,
         email: user.email,
@@ -96,6 +102,14 @@ export class AuthService {
         lastName: profileDetails.lastName,
       };
     });
+
+    const payload = { sub: result.userId, email: result.email, role: result.role };
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    return {
+      accessToken,
+      ...result,
+    };
   }
 
   async registerDoctor(dto: RegisterDoctorDto) {
@@ -115,7 +129,7 @@ export class AuthService {
     const passwordHash = await this.encryptionService.hash(dto.password);
 
     // 4. Database transaction for atomic creation
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Create user
       const user = await this.userRepository.create(
         {
@@ -217,6 +231,14 @@ export class AuthService {
         licenseNumber: doctor.licenseNumber,
       };
     });
+
+    const payload = { sub: result.userId, email: result.email, role: result.role };
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    return {
+      accessToken,
+      ...result,
+    };
   }
 
   async login(dto: LoginDto) {
@@ -232,6 +254,14 @@ export class AuthService {
 
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = await this.jwtService.signAsync(payload);
+    const patient =
+      user.role === UserRole.PATIENT
+        ? await this.prisma.patient.findUnique({ where: { userId: user.id } })
+        : null;
+    const doctor =
+      user.role === UserRole.DOCTOR
+        ? await this.prisma.doctor.findUnique({ where: { userId: user.id } })
+        : null;
 
     return {
       accessToken,
@@ -239,6 +269,8 @@ export class AuthService {
         id: user.id,
         email: user.email,
         role: user.role,
+        patientId: patient?.id,
+        doctorId: doctor?.id,
       },
     };
   }

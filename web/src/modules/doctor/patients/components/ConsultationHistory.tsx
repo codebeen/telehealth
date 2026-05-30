@@ -15,8 +15,8 @@ function sessionToDraft(session: ConsultationSession): SessionDraft {
     type: session.type,
     findings: session.findings,
     recommendations: session.recommendations,
-    prescriptions: session.prescriptions,
-    summary: session.summary,
+    prescriptions: isFallbackText(session.prescriptions) ? '' : session.prescriptions,
+    summary: isFallbackText(session.summary) ? '' : session.summary,
   };
 }
 
@@ -26,9 +26,18 @@ function buildUpdatedSession(session: ConsultationSession, draft: SessionDraft):
     type: draft.type.trim(),
     findings: draft.findings.trim(),
     recommendations: draft.recommendations.trim(),
-    prescriptions: draft.prescriptions.trim() || 'No medication prescribed.',
-    summary: draft.summary.trim() || 'Consultation session updated.',
+    prescriptions: draft.prescriptions.trim(),
+    summary: draft.summary.trim(),
   };
+}
+
+function isFallbackText(value: string) {
+  return [
+    'None specified.',
+    'No medication prescribed.',
+    'No summary recorded.',
+    'Consultation session updated.',
+  ].includes(value.trim());
 }
 
 // ── Textarea styled to match TextField ─────────────────────────────────────────
@@ -76,12 +85,14 @@ function TextAreaField({
 // ── Single session card ────────────────────────────────────────────────────────
 interface SessionCardProps {
   session: ConsultationSession;
-  onSave: (updated: ConsultationSession) => void;
+  onSave: (updated: ConsultationSession) => Promise<void> | void;
 }
 
 function SessionCard({ session, onSave }: SessionCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [draft, setDraft] = useState<SessionDraft>(() => sessionToDraft(session));
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -108,6 +119,7 @@ function SessionCard({ session, onSave }: SessionCardProps) {
   function handleEdit() {
     clearDismissTimer();
     setSaveSuccess(false);
+    setSaveError('');
     setDraft(sessionToDraft(session));
     setIsEditing(true);
   }
@@ -115,19 +127,30 @@ function SessionCard({ session, onSave }: SessionCardProps) {
   function handleCancel() {
     clearDismissTimer();
     setSaveSuccess(false);
+    setSaveError('');
     setDraft(sessionToDraft(session));
     setIsEditing(false);
   }
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!draft.type.trim() || !draft.findings.trim() || !draft.recommendations.trim()) return;
 
     const updated = buildUpdatedSession(session, draft);
-    onSave(updated);
-    setDraft(sessionToDraft(updated));
-    setSaveSuccess(true);
-    setIsEditing(false);
+    setIsSaving(true);
+    setSaveError('');
+
+    try {
+      await onSave(updated);
+      setDraft(sessionToDraft(updated));
+      setSaveSuccess(true);
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Failed to save consultation record:', err);
+      setSaveError('We could not save these changes. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
 
     dismissTimer.current = setTimeout(() => {
       setSaveSuccess(false);
@@ -176,37 +199,17 @@ function SessionCard({ session, onSave }: SessionCardProps) {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {isEditing ? (
-              <>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-500 hover:border-slate-300 transition-all"
-                >
-                  <X className="h-3 w-3" /> Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saveSuccess}
-                  className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-white hover:bg-primary-dark shadow-sm shadow-primary/20 disabled:opacity-50 transition-all"
-                >
-                  <Check className="h-3 w-3" /> Save Changes
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest bg-white border border-slate-100 rounded-md px-2 py-1">
-                  Finalized
-                </span>
-                <button
-                  type="button"
-                  onClick={handleEdit}
-                  className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-500 hover:border-primary hover:text-primary transition-all"
-                >
-                  <Pencil className="h-3 w-3" /> Edit
-                </button>
-              </>
-            )}
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest bg-white border border-slate-100 rounded-md px-2 py-1">
+              {isEditing ? 'Editing' : 'Finalized'}
+            </span>
+            <button
+              type="button"
+              onClick={handleEdit}
+              disabled={isEditing || isSaving}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-500 hover:border-primary hover:text-primary transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:text-slate-500"
+            >
+              <Pencil className="h-3 w-3" /> Edit
+            </button>
           </div>
         </div>
 
@@ -215,6 +218,12 @@ function SessionCard({ session, onSave }: SessionCardProps) {
           <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 flex items-center gap-2 text-emerald-700 animate-in fade-in slide-in-from-top-2 duration-300">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
             <span className="text-[11px] font-bold">Record updated successfully.</span>
+          </div>
+        )}
+
+        {saveError && (
+          <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 flex items-center gap-2 text-rose-700 animate-in fade-in slide-in-from-top-2 duration-300">
+            <span className="text-[11px] font-bold">{saveError}</span>
           </div>
         )}
 
@@ -261,7 +270,7 @@ function SessionCard({ session, onSave }: SessionCardProps) {
                   ? (v) => setDraft((prev) => ({ ...prev, prescriptions: v }))
                   : undefined
               }
-              placeholder="e.g. Lisinopril 10mg - 1 tablet daily (or specify none)"
+              placeholder="No medication specified"
               rows={2}
             />
           </div>
@@ -275,11 +284,33 @@ function SessionCard({ session, onSave }: SessionCardProps) {
               onChange={
                 isEditing ? (v) => setDraft((prev) => ({ ...prev, summary: v })) : undefined
               }
-              placeholder="Enter a brief summary statement for fast record lookups..."
+              placeholder="No final summary specified"
               rows={2}
             />
           </div>
         </div>
+
+        {isEditing && (
+          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={isSaving}
+              className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-bold text-slate-500 hover:border-slate-300 hover:bg-slate-50 transition-all disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <X className="mr-1.5 inline h-3.5 w-3.5" />
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saveSuccess || isSaving}
+              className="rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-white hover:bg-primary-dark shadow-md shadow-primary/15 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+            >
+              <Check className="mr-1.5 inline h-3.5 w-3.5" />
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );
@@ -289,7 +320,7 @@ function SessionCard({ session, onSave }: SessionCardProps) {
 
 interface ConsultationHistoryProps {
   history: ConsultationSession[];
-  onUpdateSession: (updated: ConsultationSession) => void;
+  onUpdateSession: (updated: ConsultationSession) => Promise<void> | void;
   showForm: boolean;
   onAddNew: () => void;
 }

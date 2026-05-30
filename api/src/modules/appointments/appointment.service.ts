@@ -20,6 +20,7 @@ import { DoctorAppointmentActionParamDto } from './dto/doctor-appointment-action
 import { DoctorAppointmentParamDto } from './dto/doctor-appointment-param.dto';
 import { DoctorAppointmentsQueryDto } from './dto/doctor-appointments-query.dto';
 import { RejectAppointmentDto } from './dto/reject-appointment.dto';
+import { CompleteAppointmentDto } from './dto/complete-appointment.dto';
 import {
   appointmentDoctorInclude,
   appointmentPatientInclude,
@@ -364,44 +365,57 @@ export class AppointmentService {
   ): Promise<DoctorAppointmentResponseDto> {
     const doctor = await this.getAuthorizedDoctor(userId, params.doctorId);
 
-    return this.prisma.$transaction(async (tx) => {
-      const appointment = await tx.appointment.findFirst({
-        where: {
-          id: params.appointmentId,
-          doctorId: doctor.id,
-          deletedAt: null,
-        },
-        include: appointmentPatientInclude,
-      });
+    const appointment = await this.prisma.appointment.findFirst({
+      where: {
+        id: params.appointmentId,
+        doctorId: doctor.id,
+        deletedAt: null,
+      },
+      include: appointmentPatientInclude,
+    });
 
-      if (!appointment) {
-        throw new NotFoundException('Appointment not found');
-      }
+    if (!appointment) {
+      throw new NotFoundException('Appointment not found');
+    }
 
-      if (appointment.status !== AppointmentStatus.PENDING) {
-        throw new ConflictException('Only pending appointments can be accepted');
-      }
+    if (appointment.status !== AppointmentStatus.PENDING) {
+      throw new ConflictException('Only pending appointments can be accepted');
+    }
 
-      const meetingLink = appointment.meetingLink ?? this.googleMeetLinkService.generate();
+    const meetingLink =
+      appointment.meetingLink ??
+      (await this.googleMeetLinkService.createMeetLink({
+        summary: `Telehealth Consultation - ${appointment.patient.profileDetails.firstName} ${appointment.patient.profileDetails.lastName}`,
+        description: appointment.reasonForConsultation ?? undefined,
+        startDateTime: this.toCalendarDateTime(
+          appointment.appointmentDate,
+          appointment.startTime,
+        ),
+        endDateTime: this.toCalendarDateTime(
+          appointment.appointmentDate,
+          appointment.endTime,
+        ),
+        timeZone: process.env.GOOGLE_CALENDAR_TIMEZONE || 'Asia/Singapore',
+        attendeeEmails: [appointment.patient.user.email],
+      }));
 
-      const updatedAppointment = await tx.appointment.update({
-        where: { id: appointment.id },
-        data: {
-          status: AppointmentStatus.CONFIRMED,
-          meetingLink,
-          statusHistories: {
-            create: {
-              status: AppointmentStatus.CONFIRMED,
-              changedById: userId,
-              notes: 'Appointment accepted by doctor. Google Meet link generated.',
-            },
+    const updatedAppointment = await this.prisma.appointment.update({
+      where: { id: appointment.id },
+      data: {
+        status: AppointmentStatus.CONFIRMED,
+        meetingLink,
+        statusHistories: {
+          create: {
+            status: AppointmentStatus.CONFIRMED,
+            changedById: userId,
+            notes: 'Appointment accepted by doctor. Google Meet link generated.',
           },
         },
-        include: appointmentPatientInclude,
-      });
-
-      return this.appointmentResponseMapper.toDoctorAppointmentDto(updatedAppointment);
+      },
+      include: appointmentPatientInclude,
     });
+
+    return this.appointmentResponseMapper.toDoctorAppointmentDto(updatedAppointment);
   }
 
   async rejectAppointment(
@@ -522,6 +536,95 @@ export class AppointmentService {
     });
   }
 
+  async completeAppointment(
+    userId: string,
+    params: DoctorAppointmentActionParamDto,
+    dto: CompleteAppointmentDto,
+  ): Promise<DoctorAppointmentResponseDto> {
+    const doctor = await this.getAuthorizedDoctor(userId, params.doctorId);
+    const consultationType = dto.consultationType.trim();
+    const clinicalFindings = dto.clinicalFindings.trim();
+    const recommendations = dto.recommendations.trim();
+    const medicationPrescriptions = dto.medicationPrescriptions?.trim();
+    const finalSummary = dto.finalSummary?.trim();
+
+    if (!consultationType) {
+      throw new BadRequestException('Consultation type is required');
+    }
+
+    if (!clinicalFindings) {
+      throw new BadRequestException('Clinical findings are required');
+    }
+
+    if (!recommendations) {
+      throw new BadRequestException('Recommendations and advice are required');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.findFirst({
+        where: {
+          id: params.appointmentId,
+          doctorId: doctor.id,
+          deletedAt: null,
+        },
+        include: appointmentPatientInclude,
+      });
+
+      if (!appointment) {
+        throw new NotFoundException('Appointment not found');
+      }
+
+      if (
+        appointment.status !== AppointmentStatus.CONFIRMED &&
+        appointment.status !== AppointmentStatus.RESCHEDULED
+      ) {
+        throw new ConflictException('Only confirmed appointments can be completed');
+      }
+
+      await tx.medicalRecord.upsert({
+        where: { appointmentId: appointment.id },
+        create: {
+          appointmentId: appointment.id,
+          doctorId: appointment.doctorId,
+          patientId: appointment.patientId,
+          consultationType,
+          clinicalFindings,
+          recommendations,
+          medicationSummary: medicationPrescriptions || null,
+          finalSummary: finalSummary || null,
+          diagnosis: clinicalFindings,
+          consultationNotes: recommendations,
+        },
+        update: {
+          consultationType,
+          clinicalFindings,
+          recommendations,
+          medicationSummary: medicationPrescriptions || null,
+          finalSummary: finalSummary || null,
+          diagnosis: clinicalFindings,
+          consultationNotes: recommendations,
+        },
+      });
+
+      const updatedAppointment = await tx.appointment.update({
+        where: { id: appointment.id },
+        data: {
+          status: AppointmentStatus.COMPLETED,
+          statusHistories: {
+            create: {
+              status: AppointmentStatus.COMPLETED,
+              changedById: userId,
+              notes: 'Appointment marked as completed by doctor with consultation record.',
+            },
+          },
+        },
+        include: appointmentPatientInclude,
+      });
+
+      return this.appointmentResponseMapper.toDoctorAppointmentDto(updatedAppointment);
+    });
+  }
+
   private async getAuthorizedPatient(userId: string, patientId: string) {
     const patient = await this.prisma.patient.findFirst({
       where: {
@@ -552,5 +655,16 @@ export class AppointmentService {
     }
 
     return doctor;
+  }
+
+  private toCalendarDateTime(date: Date, time: Date) {
+    const datePart = date.toISOString().split('T')[0];
+    const timePart = [
+      String(time.getUTCHours()).padStart(2, '0'),
+      String(time.getUTCMinutes()).padStart(2, '0'),
+      '00',
+    ].join(':');
+
+    return `${datePart}T${timePart}`;
   }
 }

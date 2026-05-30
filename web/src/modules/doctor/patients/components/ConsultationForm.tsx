@@ -84,7 +84,7 @@ export default function ConsultationForm({
   const title = isEditMode ? 'Edit Consultation Record' : 'Document New Consultation';
   const submitLabel = isEditMode ? 'Save Changes' : 'Save Record';
   let successMessage = '';
-  const isReadOnly = !isEditMode;
+  const isFieldDisabled = formSuccess;
 
 if (formSuccess) {
   successMessage = isEditMode
@@ -119,7 +119,7 @@ if (formSuccess) {
               value={formType}
               onChange={(e) => onTypeChange(e.target.value)}
               placeholder="e.g. Cardio Follow-up, Routine Review"
-              disabled={isReadOnly}
+              disabled={isFieldDisabled}
             />
           </div>
 
@@ -127,7 +127,7 @@ if (formSuccess) {
           <TextAreaField
             label="Clinical Findings"
             required
-            disabled={isReadOnly}
+            disabled={isFieldDisabled}
             value={formFindings}
             onChange={onFindingsChange}
             placeholder="Enter physical examination details, symptoms, and diagnoses..."
@@ -136,9 +136,9 @@ if (formSuccess) {
 
           {/* Recommendations */}
           <TextAreaField
-            label="Recommendations & Advice"
-            required
-            disabled={isReadOnly}
+              label="Recommendations & Advice"
+              required
+            disabled={isFieldDisabled}
             value={formRecommendations}
             onChange={onRecommendationsChange}
             placeholder="Enter patient advice, exercise guidelines, nutrition changes..."
@@ -149,7 +149,7 @@ if (formSuccess) {
           <div className="md:col-span-2">
             <TextAreaField
               label="Medication & Prescriptions"
-              disabled={isReadOnly}
+              disabled={isFieldDisabled}
               value={formPrescriptions}
               onChange={onPrescriptionsChange}
               placeholder="e.g. Lisinopril 10mg - 1 tablet daily (or specify none)"
@@ -161,7 +161,7 @@ if (formSuccess) {
           <div className="md:col-span-2">
             <TextAreaField
               label="Final Consultation Summary"
-              disabled={isReadOnly}
+              disabled={isFieldDisabled}
               value={formSummary}
               onChange={onSummaryChange}
               placeholder="Enter a brief summary statement for fast record lookups..."

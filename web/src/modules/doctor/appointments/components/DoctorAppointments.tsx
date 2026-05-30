@@ -1,16 +1,19 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, AlertTriangle, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
 import { DoctorAppointment } from '../types/appointment';
 import AppointmentItem from './AppointmentItem';
 import AppointmentDetailsModal from './AppointmentDetailsModal';
+import ConsultationRecordModal from './ConsultationRecordModal';
 import ConfirmationModal from '@/components/shared/ConfirmationModal';
 import { getCurrentDoctorId } from '../../utils/currentDoctor';
 import {
   acceptDoctorAppointment,
   cancelDoctorAppointment,
+  completeDoctorAppointment,
+  CompleteAppointmentPayload,
   getDoctorAppointments,
   rejectDoctorAppointment,
 } from '../services/doctorAppointmentService';
@@ -25,10 +28,18 @@ export default function DoctorAppointments() {
   const [cancellationReason, setCancellationReason] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+  const [apptToComplete, setApptToComplete] = useState<DoctorAppointment | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // Reset page when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
   
   // Confirmation Modal Dialog State
   const [confirmDialog, setConfirmDialog] = useState<{
-    type: 'confirm' | 'reject' | 'cancel';
+    type: 'confirm' | 'reject' | 'cancel' | 'complete';
     apptId: string;
     patientName: string;
   } | null>(null);
@@ -115,7 +126,35 @@ export default function DoctorAppointments() {
     }
   };
 
-  const triggerConfirm = (id: string, type: 'confirm' | 'reject' | 'cancel') => {
+  const handleComplete = async (id: string, payload: CompleteAppointmentPayload) => {
+    if (!doctorId) return;
+
+    const updated = await completeDoctorAppointment(doctorId, id, payload);
+    setAppointments(prev => prev.map(appt => appt.id === id ? updated : appt));
+
+    if (selectedAppt?.id === id) {
+      setSelectedAppt(updated);
+    }
+  };
+
+  const handleCompleteWithRecord = async (payload: CompleteAppointmentPayload) => {
+    if (!apptToComplete) return;
+
+    setIsSubmittingAction(true);
+    setActionError(null);
+
+    try {
+      await handleComplete(apptToComplete.id, payload);
+      setApptToComplete(null);
+    } catch (err) {
+      console.error('Failed to complete appointment:', err);
+      setActionError('We could not save this consultation record. Please try again.');
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
+
+  const triggerConfirm = (id: string, type: 'confirm' | 'reject' | 'cancel' | 'complete') => {
     const appt = appointments.find(a => a.id === id);
     if (appt) {
       setActionError(null);
@@ -185,10 +224,28 @@ export default function DoctorAppointments() {
           confirmText: 'Cancel Appointment',
           variant: 'danger' as const
         };
+      case 'complete':
+        return {
+          title: 'Complete Appointment',
+          message: `Document and complete the consultation with ${patientName}.`,
+          confirmText: 'Complete',
+          variant: 'success' as const
+        };
     }
   };
 
   const displayList = activeTab === 'upcoming' ? upcomingAppointments : historyAppointments;
+  const totalPages = Math.ceil(displayList.length / itemsPerPage);
+
+  // Adjust page when total items change (e.g. upon completion/cancellation)
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedList = displayList.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -255,8 +312,8 @@ export default function DoctorAppointments() {
               <AlertCircle className="h-8 w-8 text-rose-300 mx-auto" />
               <p className="text-xs text-rose-500 font-medium">{error}</p>
             </div>
-          ) : displayList.length > 0 ? (
-            displayList.map((appt) => (
+          ) : paginatedList.length > 0 ? (
+            paginatedList.map((appt) => (
               <AppointmentItem
                 key={appt.id}
                 appt={appt}
@@ -264,6 +321,13 @@ export default function DoctorAppointments() {
                 onConfirm={(id) => triggerConfirm(id, 'confirm')}
                 onReject={(id) => triggerConfirm(id, 'reject')}
                 onCancel={(id) => triggerConfirm(id, 'cancel')}
+                onComplete={(id) => {
+                  const appt = appointments.find((appointment) => appointment.id === id);
+                  if (appt) {
+                    setActionError(null);
+                    setApptToComplete(appt);
+                  }
+                }}
               />
             ))
           ) : (
@@ -277,6 +341,39 @@ export default function DoctorAppointments() {
             </div>
           )}
         </div>
+
+        {/* Pagination Controls */}
+        <div className="flex items-center justify-between border-t border-slate-100 pt-5 mt-4">
+          <button
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-650 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </button>
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`h-8 w-8 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                  currentPage === page
+                    ? 'bg-primary text-white shadow-sm shadow-primary/20'
+                    : 'border border-slate-200 bg-white text-slate-450 hover:border-primary/30 hover:text-primary'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, Math.max(totalPages, 1)))}
+            disabled={currentPage >= totalPages || totalPages <= 1}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-650 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Appointment Details Modal */}
@@ -286,10 +383,17 @@ export default function DoctorAppointments() {
         onConfirm={(id) => triggerConfirm(id, 'confirm')}
         onReject={(id) => triggerConfirm(id, 'reject')}
         onCancel={(id) => triggerConfirm(id, 'cancel')}
+        onComplete={(id) => {
+          const appt = appointments.find((appointment) => appointment.id === id);
+          if (appt) {
+            setActionError(null);
+            setApptToComplete(appt);
+          }
+        }}
       />
 
       {/* Action Confirmation Dialog Modal */}
-      {confirmDialog && confirmDialog.type !== 'cancel' && (
+      {confirmDialog && confirmDialog.type !== 'cancel' && confirmDialog.type !== 'complete' && (
         <ConfirmationModal
           isOpen={!!confirmDialog}
           onClose={() => setConfirmDialog(null)}
@@ -371,6 +475,21 @@ export default function DoctorAppointments() {
             </div>
           </div>
         </div>
+      )}
+
+      {apptToComplete && (
+        <ConsultationRecordModal
+          appointment={apptToComplete}
+          isSubmitting={isSubmittingAction}
+          error={actionError}
+          onClose={() => {
+            if (!isSubmittingAction) {
+              setApptToComplete(null);
+              setActionError(null);
+            }
+          }}
+          onSubmit={handleCompleteWithRecord}
+        />
       )}
     </div>
   );

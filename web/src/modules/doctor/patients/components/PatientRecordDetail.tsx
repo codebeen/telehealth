@@ -1,11 +1,16 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ClipboardList } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ClipboardList, FileText, ShieldAlert } from 'lucide-react';
 
 import { PatientRecord, ConsultationSession } from '../types/patient';
 import { PATIENT_DATA, persistPatientData } from '../types/patientData';
+import { getCurrentDoctorId } from '../../utils/currentDoctor';
+import {
+  fetchCompletedConsultationPatient,
+  updateConsultationRecord,
+} from '../services/patientService';
 import PatientProfile from './PatientProfile';
 import ConsultationHistory from './ConsultationHistory';
 import ConsultationForm from './ConsultationForm';
@@ -16,10 +21,15 @@ interface PatientRecordDetailProps {
 
 export default function PatientRecordDetail({ patientId }: PatientRecordDetailProps) {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'consultations' | 'medicalHistory' | 'allergies'>(
+    'consultations',
+  );
 
   // Bootstrap from shared seed — in a real app this would be fetched by patientId
   const initial = PATIENT_DATA.find((p) => p.id === patientId) ?? null;
   const [patient, setPatient] = useState<PatientRecord | null>(initial);
+  const [isLoading, setIsLoading] = useState(!initial);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Add-new form state
   const [showForm, setShowForm] = useState(!initial || initial.history.length === 0);
@@ -31,6 +41,40 @@ export default function PatientRecordDetail({ patientId }: PatientRecordDetailPr
   const [formSuccess, setFormSuccess] = useState(false);
 
   const formRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPatient = async () => {
+      try {
+        setIsLoading(true);
+        setLoadError(null);
+        const doctorId = getCurrentDoctorId();
+        const data = await fetchCompletedConsultationPatient(doctorId, patientId);
+
+        if (isMounted) {
+          setPatient(data);
+          setShowForm(!data || data.history.length === 0);
+        }
+      } catch (err) {
+        console.error('Failed to fetch patient medical record:', err);
+        if (isMounted) {
+          setLoadError('We could not load this patient medical record right now.');
+          setPatient(initial);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadPatient();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [patientId]);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -49,19 +93,31 @@ export default function PatientRecordDetail({ patientId }: PatientRecordDetailPr
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
-  function handleUpdateSession(updated: ConsultationSession) {
+  async function handleUpdateSession(updated: ConsultationSession) {
+    const doctorId = getCurrentDoctorId();
+    const savedSession = await updateConsultationRecord(doctorId, patientId, updated.id, {
+      consultationType: updated.type,
+      clinicalFindings: updated.findings,
+      recommendations: updated.recommendations,
+      medicationPrescriptions: updated.prescriptions,
+      finalSummary: updated.summary,
+    });
+
     // Persist changes to mock db in-memory array and localStorage
     const patientIndex = PATIENT_DATA.findIndex((p) => p.id === patientId);
     if (patientIndex !== -1) {
       PATIENT_DATA[patientIndex].history = PATIENT_DATA[patientIndex].history.map((s) =>
-        s.id === updated.id ? updated : s,
+        s.id === savedSession.id ? savedSession : s,
       );
       persistPatientData();
     }
 
     setPatient((prev) =>
       prev
-        ? { ...prev, history: prev.history.map((s) => (s.id === updated.id ? updated : s)) }
+        ? {
+            ...prev,
+            history: prev.history.map((s) => (s.id === savedSession.id ? savedSession : s)),
+          }
         : prev,
     );
   }
@@ -127,6 +183,27 @@ export default function PatientRecordDetail({ patientId }: PatientRecordDetailPr
 
   // ── Not found ────────────────────────────────────────────────────────────────
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push('/doctor/patients')}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 hover:border-primary/40 hover:text-primary shadow-xs transition-all"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <h1 className="text-xl font-bold text-brand-text">Loading patient record...</h1>
+        </div>
+        <div className="rounded-3xl border border-slate-100 bg-white p-12 text-center">
+          <p className="text-xs text-slate-400 font-semibold">
+            Fetching completed consultation history.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!patient) {
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
@@ -141,7 +218,7 @@ export default function PatientRecordDetail({ patientId }: PatientRecordDetailPr
         </div>
         <div className="rounded-3xl border border-slate-100 bg-white p-12 text-center">
           <p className="text-xs text-slate-400 font-semibold">
-            No patient exists with ID &ldquo;{patientId}&rdquo;.
+            {loadError ?? `No completed consultation record exists for patient ID "${patientId}".`}
           </p>
         </div>
       </div>
@@ -174,7 +251,33 @@ export default function PatientRecordDetail({ patientId }: PatientRecordDetailPr
 
         {/* Records panel */}
         <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-xs space-y-6">
-          {patient.history.length > 0 ? (
+          <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-4">
+            {[
+              { id: 'consultations' as const, label: 'Consultation Notes and Prescription', icon: FileText },
+              { id: 'medicalHistory' as const, label: 'Medical History', icon: ClipboardList },
+              { id: 'allergies' as const, label: 'Allergies', icon: ShieldAlert },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
+                    isActive
+                      ? 'bg-primary text-white shadow-xs shadow-primary/20'
+                      : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-brand-text'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {activeTab === 'consultations' && (patient.history.length > 0 ? (
             <>
               {/* History timeline — each card self-manages edit state */}
               <ConsultationHistory
@@ -241,6 +344,100 @@ export default function PatientRecordDetail({ patientId }: PatientRecordDetailPr
                   onCancel={() => router.push('/doctor/patients')}
                 />
               </div>
+            </div>
+          ))}
+
+          {activeTab === 'medicalHistory' && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Medical History
+                </h3>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Patient-declared conditions from their medical profile.
+                </p>
+              </div>
+
+              {(patient.medicalHistory ?? []).length > 0 ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {(patient.medicalHistory ?? []).map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-slate-100 bg-slate-50/30 p-4"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="text-sm font-extrabold text-brand-text">
+                          {item.conditionName}
+                        </h4>
+                        <span
+                          className={`rounded-md border px-2 py-0.5 text-[9px] font-bold ${
+                            item.status === 'ACTIVE'
+                              ? 'border-emerald-100 bg-emerald-50 text-emerald-600'
+                              : 'border-slate-200 bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                      </div>
+                      {item.diagnosedDate && (
+                        <p className="mt-2 text-[10px] font-bold text-slate-400">
+                          Diagnosed: {new Date(item.diagnosedDate).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            timeZone: 'UTC',
+                          })}
+                        </p>
+                      )}
+                      {item.description && (
+                        <p className="mt-3 border-t border-slate-100 pt-3 text-xs font-medium leading-relaxed text-slate-600">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-100 bg-slate-50/30 p-10 text-center">
+                  <AlertCircle className="mx-auto h-6 w-6 text-slate-300" />
+                  <p className="mt-2 text-xs font-bold text-slate-400">
+                    No medical history entries found.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'allergies' && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Allergies
+                </h3>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Patient-declared allergies from their medical profile.
+                </p>
+              </div>
+
+              {(patient.allergies ?? []).length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {(patient.allergies ?? []).map((allergy) => (
+                    <span
+                      key={allergy.id}
+                      className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600"
+                    >
+                      {allergy.name}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-100 bg-slate-50/30 p-10 text-center">
+                  <AlertCircle className="mx-auto h-6 w-6 text-slate-300" />
+                  <p className="mt-2 text-xs font-bold text-slate-400">
+                    No allergies listed.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

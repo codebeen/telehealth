@@ -1,21 +1,65 @@
-import { Injectable } from '@nestjs/common';
-import { randomInt } from 'crypto';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { google } from 'googleapis';
+import { randomUUID } from 'crypto';
+
+interface CreateMeetLinkParams {
+  summary: string;
+  description?: string;
+  startDateTime: string;
+  endDateTime: string;
+  timeZone: string;
+  attendeeEmails?: string[];
+}
 
 @Injectable()
 export class GoogleMeetLinkService {
-  generate() {
-    const code = [this.randomLetters(3), this.randomLetters(4), this.randomLetters(3)].join('-');
-    return `https://meet.google.com/${code}`;
-  }
+  async createMeetLink(params: CreateMeetLinkParams) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+    const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
 
-  private randomLetters(length: number) {
-    const alphabet = 'abcdefghijklmnopqrstuvwxyz';
-    let value = '';
-
-    for (let index = 0; index < length; index += 1) {
-      value += alphabet[randomInt(alphabet.length)];
+    if (!clientId || !clientSecret || !redirectUri || !refreshToken) {
+      throw new InternalServerErrorException('Google Calendar integration is not configured');
     }
 
-    return value;
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+
+    const response = await calendar.events.insert({
+      calendarId: 'primary',
+      conferenceDataVersion: 1,
+      requestBody: {
+        summary: params.summary,
+        description: params.description,
+        start: {
+          dateTime: params.startDateTime,
+          timeZone: params.timeZone,
+        },
+        end: {
+          dateTime: params.endDateTime,
+          timeZone: params.timeZone,
+        },
+        attendees: params.attendeeEmails?.map((email) => ({ email })),
+        conferenceData: {
+          createRequest: {
+            requestId: randomUUID(),
+            conferenceSolutionKey: {
+              type: 'hangoutsMeet',
+            },
+          },
+        },
+      },
+    });
+
+    const meetingLink = response.data.hangoutLink;
+
+    if (!meetingLink) {
+      throw new InternalServerErrorException('Google did not return a Meet link');
+    }
+
+    return meetingLink;
   }
 }

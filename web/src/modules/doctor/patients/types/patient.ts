@@ -18,4 +18,20 @@ export interface PatientRecord {
   ongoingAppointment?: string;
   status: 'Ongoing' | 'Completed';
   history: ConsultationSession[];
+  medicalHistory?: PatientMedicalHistory[];
+  allergies?: PatientAllergy[];
+}
+
+export interface PatientMedicalHistory {
+  id: string;
+  conditionName: string;
+  diagnosedDate: string;
+  status: 'ACTIVE' | 'RESOLVED' | string;
+  description: string;
+}
+
+export interface PatientAllergy {
+  id: string;
+  name: string;
+  createdAt: string;
 }

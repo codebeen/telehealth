@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { X, Mail, Phone, Clock, Video, Check, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Mail, Phone, Clock, Video, Check, AlertCircle, Copy } from 'lucide-react';
 import { DoctorAppointment } from '../types/appointment';
 
 interface AppointmentDetailsModalProps {
@@ -10,6 +10,7 @@ interface AppointmentDetailsModalProps {
   onConfirm: (id: string) => void;
   onReject: (id: string) => void;
   onCancel: (id: string) => void;
+  onComplete: (id: string) => void;
 }
 
 export default function AppointmentDetailsModal({
@@ -18,9 +19,19 @@ export default function AppointmentDetailsModal({
   onConfirm,
   onReject,
   onCancel,
+  onComplete,
 }: AppointmentDetailsModalProps) {
+  const [isCopied, setIsCopied] = useState(false);
   
   if (!appt) return null;
+
+  const copyMeetingLink = async () => {
+    if (!appt.meetingLink) return;
+
+    await navigator.clipboard.writeText(appt.meetingLink);
+    setIsCopied(true);
+    window.setTimeout(() => setIsCopied(false), 1800);
+  };
 
   const getStatusBadgeClass = (status: DoctorAppointment['status']) => {
     switch (status) {
@@ -74,14 +85,23 @@ export default function AppointmentDetailsModal({
         {appt.status === 'Confirmed' && appt.meetingLink && (
           <div className="space-y-2">
             <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Google Meet Link</span>
-            <a
-              href={appt.meetingLink}
-              target="_blank"
-              rel="noreferrer"
-              className="block break-all bg-primary-light rounded-2xl p-4 text-xs text-primary font-bold leading-relaxed border border-primary/10 hover:bg-primary/10 transition-colors"
-            >
-              {appt.meetingLink}
-            </a>
+            <div className="rounded-2xl border border-primary/10 bg-primary-light p-4 space-y-3">
+              <a
+                href={appt.meetingLink}
+                target="_blank"
+                rel="noreferrer"
+                className="block break-all text-xs text-primary font-bold leading-relaxed hover:underline"
+              >
+                {appt.meetingLink}
+              </a>
+              <button
+                onClick={copyMeetingLink}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/10 bg-white px-2.5 py-1.5 text-[10px] font-bold text-primary transition-colors hover:bg-primary/10"
+              >
+                {isCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {isCopied ? 'Copied' : 'Copy Link'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -174,6 +194,15 @@ export default function AppointmentDetailsModal({
               >
                 <Video className="h-4 w-4" /> Join Room Call
               </a>
+              <button
+                onClick={() => {
+                  onComplete(appt.id);
+                  onClose();
+                }}
+                className="flex-1 rounded-2xl bg-emerald-500 py-3 text-xs font-bold text-white hover:bg-emerald-600 shadow-md shadow-emerald-500/15 transition-all flex items-center justify-center gap-1.5"
+              >
+                <Check className="h-4 w-4" /> Complete
+              </button>
               <button 
                 onClick={() => {
                   onCancel(appt.id);

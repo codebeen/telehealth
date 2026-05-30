@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, Calendar, Clock, Video, RefreshCw, XCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Calendar, Clock, Video, RefreshCw, XCircle, Copy, Check } from 'lucide-react';
 import { PatientAppointment } from '../types/appointment';
 import { getDisplayDateFormatted } from '../services/appointmentService';
 import Link from 'next/link';
@@ -17,8 +17,17 @@ export default function AppointmentDetailsModal({
   onReschedule,
   onCancel,
 }: AppointmentDetailsModalProps) {
+  const [isCopied, setIsCopied] = useState(false);
   const displayDate = getDisplayDateFormatted(appointment.date);
   const hasMeetingLink = appointment.roomId.startsWith('http');
+
+  const copyMeetingLink = async () => {
+    if (!hasMeetingLink) return;
+
+    await navigator.clipboard.writeText(appointment.roomId);
+    setIsCopied(true);
+    window.setTimeout(() => setIsCopied(false), 1800);
+  };
 
   const statusBadgeColor = {
     Pending: 'bg-amber-50 text-amber-600 border-amber-100',
@@ -108,14 +117,23 @@ export default function AppointmentDetailsModal({
                 <span>Telehealth Consultation Room</span>
               </div>
               {hasMeetingLink ? (
-                <a
-                  href={appointment.roomId}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block break-all text-[10px] text-primary font-bold pl-6.5 hover:underline"
-                >
-                  {appointment.roomId}
-                </a>
+                <div className="flex flex-col gap-2 pl-6.5">
+                  <a
+                    href={appointment.roomId}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block break-all text-[10px] text-primary font-bold hover:underline"
+                  >
+                    {appointment.roomId}
+                  </a>
+                  <button
+                    onClick={copyMeetingLink}
+                    className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-primary/10 bg-primary-light px-2.5 py-1.5 text-[10px] font-bold text-primary transition-colors hover:bg-primary/10"
+                  >
+                    {isCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {isCopied ? 'Copied' : 'Copy Link'}
+                  </button>
+                </div>
               ) : (
                 <p className="text-[10px] text-slate-400 font-semibold pl-6.5">
                   Waiting for the doctor to accept and generate the Google Meet link.
@@ -137,11 +155,11 @@ export default function AppointmentDetailsModal({
 
         {/* Footer Actions */}
         <div className="border-t border-slate-50 p-6 flex flex-col gap-2.5 bg-slate-50/20">
-          {appointment.status === 'Upcoming' && (
+          {hasMeetingLink && appointment.status !== 'Cancelled' && (
             <div className="flex gap-2.5">
               <Link
-                href={hasMeetingLink ? appointment.roomId : '#'}
-                target={hasMeetingLink ? '_blank' : undefined}
+                href={appointment.roomId}
+                target="_blank"
                 className="flex-1 text-center rounded-xl bg-primary py-2.5 text-xs font-bold text-white shadow-md shadow-primary/20 hover:bg-primary-dark transition-colors cursor-pointer"
               >
                 Join Consultation Room

@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Search, Eye, User, CalendarCheck, ClipboardList } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Eye, User, CalendarCheck, ClipboardList, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PatientRecord } from '../types/patient';
 
 interface PatientListProps {
@@ -17,6 +17,26 @@ export default function PatientList({
   onSearchChange,
   onViewPatient,
 }: PatientListProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // Reset page when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const totalPages = Math.ceil(patients.length / itemsPerPage);
+  const safeCurrentPage = Math.min(currentPage, Math.max(totalPages, 1));
+
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+  const paginatedPatients = patients.slice(startIndex, startIndex + itemsPerPage);
+
   return (
     <div className="space-y-4">
       {/* Search + count row */}
@@ -49,7 +69,7 @@ export default function PatientList({
 
       {/* Patient rows */}
       <div className="space-y-2">
-        {patients.map((pat) => {
+        {paginatedPatients.map((pat) => {
           const initials = pat.name
             .split(' ')
             .map((n) => n[0])
@@ -133,6 +153,39 @@ export default function PatientList({
             <p className="text-xs text-slate-400 font-semibold">No patients found matching your search.</p>
           </div>
         )}
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between border-t border-slate-100 pt-5 mt-4">
+        <button
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-650 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        >
+          <ChevronLeft className="h-4 w-4" /> Previous
+        </button>
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: Math.max(totalPages, 1) }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`h-8 w-8 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                currentPage === page
+                  ? 'bg-primary text-white shadow-sm shadow-primary/20'
+                  : 'border border-slate-200 bg-white text-slate-450 hover:border-primary/30 hover:text-primary'
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, Math.max(totalPages, 1)))}
+          disabled={currentPage >= totalPages || totalPages <= 1}
+          className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-650 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        >
+          Next <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );

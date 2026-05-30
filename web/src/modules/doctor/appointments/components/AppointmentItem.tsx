@@ -10,6 +10,7 @@ interface AppointmentItemProps {
   onConfirm: (id: string) => void;
   onReject: (id: string) => void;
   onCancel: (id: string) => void;
+  onComplete: (id: string) => void;
 }
 
 export default function AppointmentItem({
@@ -18,6 +19,7 @@ export default function AppointmentItem({
   onConfirm,
   onReject,
   onCancel,
+  onComplete,
 }: AppointmentItemProps) {
   
   const getStatusBadgeClass = (status: DoctorAppointment['status']) => {
@@ -114,6 +116,12 @@ export default function AppointmentItem({
             >
               <Video className="h-3.5 w-3.5" /> Start Call
             </a>
+            <button 
+              onClick={() => onComplete(appt.id)}
+              className="rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-600 transition-colors shadow-xs shadow-emerald-500/10 flex items-center gap-1"
+            >
+              <Check className="h-3.5 w-3.5" /> Complete
+            </button>
             <button 
               onClick={() => onCancel(appt.id)}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors"

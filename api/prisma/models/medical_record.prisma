@@ -8,6 +8,11 @@ model MedicalRecord {
   appointmentId     String    @unique @map("appointment_id") @db.Uuid
   doctorId          String    @map("doctor_id") @db.Uuid
   patientId         String    @map("patient_id") @db.Uuid
+  consultationType  String?   @map("consultation_type") @db.VarChar(150)
+  clinicalFindings  String?   @map("clinical_findings") @db.Text
+  recommendations   String?   @db.Text
+  medicationSummary String?   @map("medication_summary") @db.Text
+  finalSummary      String?   @map("final_summary") @db.Text
   diagnosis         String    @db.Text
   consultationNotes String?   @map("consultation_notes") @db.Text
   followUpDate      DateTime? @map("follow_up_date") @db.Date

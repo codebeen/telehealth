@@ -11,6 +11,7 @@ import { DoctorAppointmentParamDto } from './dto/doctor-appointment-param.dto';
 import { DoctorAppointmentsQueryDto } from './dto/doctor-appointments-query.dto';
 import { DoctorAppointmentActionParamDto } from './dto/doctor-appointment-action-param.dto';
 import { RejectAppointmentDto } from './dto/reject-appointment.dto';
+import { CompleteAppointmentDto } from './dto/complete-appointment.dto';
 
 @Controller('appointments')
 @UseGuards(JwtAuthGuard)
@@ -68,6 +69,16 @@ export class AppointmentController {
     @Body() dto: CancelAppointmentDto,
   ) {
     return this.appointmentService.cancelDoctorAppointment(req.user.sub, params, dto);
+  }
+
+  @Patch('doctor/:doctorId/:appointmentId/complete')
+  @HttpCode(HttpStatus.OK)
+  completeAppointment(
+    @Request() req,
+    @Param() params: DoctorAppointmentActionParamDto,
+    @Body() dto: CompleteAppointmentDto,
+  ) {
+    return this.appointmentService.completeAppointment(req.user.sub, params, dto);
   }
 
   @Patch('patient/:patientId/:appointmentId/reschedule')

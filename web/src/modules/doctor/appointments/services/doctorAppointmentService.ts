@@ -1,6 +1,14 @@
 import api from '@/lib/api';
 import { DoctorAppointment } from '../types/appointment';
 
+export interface CompleteAppointmentPayload {
+  consultationType: string;
+  clinicalFindings: string;
+  recommendations: string;
+  medicationPrescriptions?: string;
+  finalSummary?: string;
+}
+
 export async function getDoctorAppointments(
   doctorId: string,
   view: 'upcoming' | 'past' | 'all' = 'all',
@@ -41,6 +49,19 @@ export async function cancelDoctorAppointment(
   const response = await api.patch<DoctorAppointment>(
     `/appointments/doctor/${doctorId}/${appointmentId}/cancel`,
     { cancellationReason },
+  );
+
+  return response.data;
+}
+
+export async function completeDoctorAppointment(
+  doctorId: string,
+  appointmentId: string,
+  payload: CompleteAppointmentPayload,
+) {
+  const response = await api.patch<DoctorAppointment>(
+    `/appointments/doctor/${doctorId}/${appointmentId}/complete`,
+    payload,
   );
 
   return response.data;

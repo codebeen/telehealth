@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Search, Clock, CheckCircle2, ChevronRight, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Clock, CheckCircle2, ChevronRight, AlertCircle, ChevronLeft } from 'lucide-react';
 import { PatientRecord } from '../types/patient';
 
 interface PatientDirectoryProps {
@@ -26,6 +26,25 @@ export default function PatientDirectory({
   onSearchChange,
   onSelectPatient,
 }: PatientDirectoryProps) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // Reset page when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const totalPages = Math.ceil(patients.length / itemsPerPage);
+  const safeCurrentPage = Math.min(currentPage, Math.max(totalPages, 1));
+
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const startIndex = (safeCurrentPage - 1) * itemsPerPage;
+  const paginatedPatients = patients.slice(startIndex, startIndex + itemsPerPage);
   return (
     <div className="lg:col-span-1 rounded-3xl border border-slate-100 bg-white p-5 shadow-xs space-y-4 h-fit">
       {/* Header */}
@@ -52,7 +71,7 @@ export default function PatientDirectory({
 
       {/* List */}
       <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-        {patients.map((pat) => (
+        {paginatedPatients.map((pat) => (
           <div
             key={pat.id}
             onClick={() => onSelectPatient(pat.id)}
@@ -110,6 +129,27 @@ export default function PatientDirectory({
             <p className="text-xs text-slate-400 font-semibold">No patients found</p>
           </div>
         )}
+      </div>
+
+      {/* Compact Pagination Controls */}
+      <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-3">
+        <button
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="text-[10px] font-bold text-slate-500">
+          Page {currentPage} of {Math.max(totalPages, 1)}
+        </span>
+        <button
+          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, Math.max(totalPages, 1)))}
+          disabled={currentPage >= totalPages || totalPages <= 1}
+          className="flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );

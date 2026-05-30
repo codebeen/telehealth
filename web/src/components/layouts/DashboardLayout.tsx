@@ -77,6 +77,8 @@ export default function DashboardLayout({ children, navigation, user }: Dashboar
     localStorage.removeItem('user');
     localStorage.removeItem('registered_patient_profile');
     localStorage.removeItem('registered_doctor_profile');
+    document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'auth_role=; path=/; max-age=0; SameSite=Lax';
     setIsLogoutConfirmOpen(false);
     router.push('/login');
   };

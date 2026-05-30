@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ScheduleModule } from './modules/consultation/schedule/schedule.module';
 import { AppointmentModule } from './modules/appointments/appointment.module';
 import { MedicalRecordsModule } from './modules/medical-records/medical-records.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { MedicalRecordsModule } from './modules/medical-records/medical-records.
     ScheduleModule,
     AppointmentModule,
     MedicalRecordsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

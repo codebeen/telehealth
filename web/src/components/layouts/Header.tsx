@@ -1,12 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { 
-  Menu, Bell, ChevronDown, User, Settings, LogOut, Stethoscope, Activity
+  Menu, Bell, ChevronDown, User, LogOut, Stethoscope, Activity, X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UserProfile } from './Sidebar';
+import { AppNotification } from '@/modules/notifications/types/notification';
+import {
+  createNotificationSocket,
+  fetchNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '@/modules/notifications/services/notificationService';
 
 interface HeaderProps {
   user: UserProfile;
@@ -17,15 +24,82 @@ interface HeaderProps {
 export default function Header({ user, setIsSidebarOpen, onLogout }: HeaderProps) {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
-  // Mock notifications
-  const notifications = [
-    { id: 1, title: 'New Message', description: 'Dr. Sarah Connor updated your treatment plan.', time: '5m ago', read: false },
-    { id: 2, title: 'Appointment Confirmed', description: 'Your session tomorrow at 10:00 AM is scheduled.', time: '1h ago', read: true },
-    { id: 3, title: 'Lab Report Ready', description: 'Your blood test results are uploaded.', time: '4h ago', read: true },
-  ];
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+    const storedUser = localStorage.getItem('user');
+    if (!token) return;
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+    fetchNotifications()
+      .then(setNotifications)
+      .catch((err) => console.error('Failed to load notifications:', err));
+
+    const socket = createNotificationSocket(token);
+    socket.on('connect', () => {
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          socket.emit('notifications:join', { userId: parsed.id });
+        } catch {
+          // Ignore malformed local user data.
+        }
+      }
+    });
+    socket.on('notifications:new', (notification: AppNotification) => {
+      setNotifications((current) => [
+        notification,
+        ...current.filter((item) => item.id !== notification.id),
+      ]);
+    });
+    socket.on('connect_error', (err) => {
+      console.error('Notification socket connection failed:', err.message);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((notification) => !notification.isRead).length,
+    [notifications],
+  );
+
+  const formatNotificationTime = (value: string) => {
+    const date = new Date(value);
+    const diffMinutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+    if (diffMinutes < 1) return 'Now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    const diffHours = Math.round(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const handleMarkAllRead = async () => {
+    setNotifications((current) => current.map((item) => ({ ...item, isRead: true })));
+    try {
+      await markAllNotificationsRead();
+    } catch (err) {
+      console.error('Failed to mark notifications read:', err);
+    }
+  };
+
+  const handleNotificationClick = async (notification: AppNotification) => {
+    if (!notification.isRead) {
+      setNotifications((current) =>
+        current.map((item) =>
+          item.id === notification.id ? { ...item, isRead: true } : item,
+        ),
+      );
+      try {
+        await markNotificationRead(notification.id);
+      } catch (err) {
+        console.error('Failed to mark notification read:', err);
+      }
+    }
+  };
 
   return (
     <header className="flex h-16 w-full items-center justify-between border-b border-slate-100 bg-white px-6">
@@ -56,8 +130,8 @@ export default function Header({ user, setIsSidebarOpen, onLogout }: HeaderProps
       {/* Quick Actions & Popups */}
       <div className="flex items-center gap-3">
 
-        {/* Notification Dropdown */}
-        <div className="relative">
+        {/* Notification Drawer */}
+        <div>
           <button
             onClick={() => {
               setIsNotificationOpen(!isNotificationOpen);
@@ -78,26 +152,84 @@ export default function Header({ user, setIsSidebarOpen, onLogout }: HeaderProps
 
           {isNotificationOpen && (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setIsNotificationOpen(false)} />
-              <div className="absolute right-0 mt-2.5 z-50 w-80 rounded-2xl border border-slate-100 bg-white p-2 shadow-xl ring-1 ring-slate-100 animate-in fade-in-50 slide-in-from-top-3 duration-200">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-slate-50">
-                  <span className="text-xs font-bold text-brand-text">Notifications</span>
-                  <button className="text-[10px] font-bold text-primary hover:underline">Mark all read</button>
+              <div className="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-xs" onClick={() => setIsNotificationOpen(false)} />
+              <aside className="fixed right-0 top-0 z-50 flex h-screen w-full max-w-md flex-col border-l border-slate-100 bg-white shadow-2xl animate-in slide-in-from-right duration-200">
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                  <div>
+                    <span className="text-sm font-extrabold text-brand-text">Notifications</span>
+                    <p className="text-[10px] font-semibold text-slate-400">
+                      Real-time appointment and schedule updates
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsNotificationOpen(false)}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 text-slate-500 hover:bg-slate-50"
+                    title="Close notifications"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
-                  {notifications.map((item) => (
-                    <div key={item.id} className="p-3 hover:bg-slate-50 rounded-xl transition-colors duration-150">
-                      <div className="flex justify-between items-start gap-2">
-                        <span className={cn("text-xs font-semibold", item.read ? "text-slate-600" : "text-brand-text font-bold")}>
-                          {item.title}
-                        </span>
-                        <span className="text-[9px] text-slate-400 shrink-0">{item.time}</span>
+                <div className="flex items-center justify-between border-b border-slate-50 px-5 py-3">
+                  <span className="text-xs font-bold text-slate-500">
+                    {unreadCount} unread
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    className="text-[10px] font-bold text-primary hover:underline"
+                  >
+                    Mark all read
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3">
+                  {notifications.length === 0 ? (
+                    <div className="flex h-full flex-col items-center justify-center text-center">
+                      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+                        <Bell className="h-5 w-5" />
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2">{item.description}</p>
+                      <p className="text-xs font-bold text-slate-500">No notifications yet</p>
+                      <p className="mt-1 max-w-56 text-[10px] font-medium text-slate-400">
+                        Bookings, upcoming appointments, and schedule updates will appear here.
+                      </p>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="space-y-2">
+                      {notifications.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleNotificationClick(item)}
+                          className={cn(
+                            'w-full rounded-2xl border p-3 text-left transition-colors',
+                            item.isRead
+                              ? 'border-slate-100 bg-white hover:bg-slate-50'
+                              : 'border-primary/15 bg-primary-light/40 hover:bg-primary-light/60',
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                {!item.isRead && <span className="h-2 w-2 rounded-full bg-primary" />}
+                                <span className="text-xs font-extrabold text-brand-text">{item.title}</span>
+                              </div>
+                              <p className="text-[11px] font-medium leading-relaxed text-slate-500">
+                                {item.message}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-[9px] font-semibold text-slate-400">
+                              {formatNotificationTime(item.createdAt)}
+                            </span>
+                          </div>
+                          <span className="mt-2 inline-block rounded-md bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                            {item.type.toLowerCase().replace('_', ' ')}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
+              </aside>
             </>
           )}
         </div>

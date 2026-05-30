@@ -10,6 +10,10 @@ import StepMedicalHistory from './patient-stepper/StepMedicalHistory';
 import StepReviewSubmit from './patient-stepper/StepReviewSubmit';
 import { registerPatient } from '@/modules/auth/services/auth.service';
 
+const setAuthCookie = (name: string, value: string) => {
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=86400; SameSite=Lax`;
+};
+
 interface MedicalHistoryItem {
   id: string;
   conditionName: string;
@@ -228,6 +232,8 @@ export default function PatientRegisterStepper() {
       // Save session credentials
       localStorage.setItem('token', result.accessToken);
       localStorage.setItem('user', JSON.stringify({ id: result.userId, email: result.email, role: result.role, patientId: result.patientId }));
+      setAuthCookie('auth_token', result.accessToken);
+      setAuthCookie('auth_role', result.role);
       
       setIsSuccess(true);
       

@@ -7,6 +7,10 @@ import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
 import { TextField } from '@/components/ui/TextField';
 import { login } from '@/modules/auth/services/auth.service';
 
+const setAuthCookie = (name: string, value: string) => {
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=86400; SameSite=Lax`;
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -40,6 +44,8 @@ export default function LoginPage() {
         // Save to localStorage
         localStorage.setItem('token', accessToken);
         localStorage.setItem('user', JSON.stringify(user));
+        setAuthCookie('auth_token', accessToken);
+        setAuthCookie('auth_role', user.role);
         
         // Redirect based on role
         if (user.role === 'DOCTOR') {

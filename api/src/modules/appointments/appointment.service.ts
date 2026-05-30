@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AppointmentStatus, ScheduleStatus } from '@prisma/client';
+import { AppointmentStatus, NotificationType, ScheduleStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { BookConsultationDto } from './dto/book-consultation.dto';
 import { CancelAppointmentDto } from './dto/cancel-appointment.dto';
@@ -27,6 +27,7 @@ import {
   AppointmentResponseMapper,
 } from './mappers/appointment-response.mapper';
 import { GoogleMeetLinkService } from './services/google-meet-link.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AppointmentService {
@@ -40,6 +41,7 @@ export class AppointmentService {
     private readonly prisma: PrismaService,
     private readonly appointmentResponseMapper: AppointmentResponseMapper,
     private readonly googleMeetLinkService: GoogleMeetLinkService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getPatientAppointments(
@@ -103,7 +105,7 @@ export class AppointmentService {
       throw new BadRequestException('Reason for consultation is required');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const bookedAppointment = await this.prisma.$transaction(async (tx) => {
       const schedule = await tx.doctorSchedule.findUnique({
         where: { id: dto.scheduleId },
         include: {
@@ -165,6 +167,21 @@ export class AppointmentService {
 
       return this.appointmentResponseMapper.toBookConsultationDto(appointment);
     });
+
+    await this.notifyAppointmentUsers(bookedAppointment.id, {
+      doctor: {
+        title: 'New appointment booked',
+        message: `A patient booked a ${bookedAppointment.consultationType} appointment for ${bookedAppointment.appointmentDate} at ${bookedAppointment.startTime}.`,
+        type: NotificationType.BOOKED,
+      },
+      patient: {
+        title: 'Appointment request sent',
+        message: `Your appointment request with ${bookedAppointment.doctor.name} is pending doctor confirmation.`,
+        type: NotificationType.BOOKED,
+      },
+    });
+
+    return bookedAppointment;
   }
 
   async rescheduleAppointment(
@@ -174,7 +191,7 @@ export class AppointmentService {
   ): Promise<PatientAppointmentResponseDto> {
     const patient = await this.getAuthorizedPatient(userId, params.patientId);
 
-    return this.prisma.$transaction(async (tx) => {
+    const rescheduledAppointment = await this.prisma.$transaction(async (tx) => {
       const appointment = await tx.appointment.findFirst({
         where: {
           id: params.appointmentId,
@@ -259,6 +276,21 @@ export class AppointmentService {
 
       return this.appointmentResponseMapper.toPatientAppointmentDto(updatedAppointment);
     });
+
+    await this.notifyAppointmentUsers(rescheduledAppointment.id, {
+      doctor: {
+        title: 'Appointment rescheduled',
+        message: `A patient rescheduled an appointment to ${rescheduledAppointment.date} at ${rescheduledAppointment.slotStart}.`,
+        type: NotificationType.RESCHEDULED,
+      },
+      patient: {
+        title: 'Schedule updated',
+        message: `Your appointment with ${rescheduledAppointment.doctorName} was moved to ${rescheduledAppointment.date} at ${rescheduledAppointment.slotStart}.`,
+        type: NotificationType.RESCHEDULED,
+      },
+    });
+
+    return rescheduledAppointment;
   }
 
   async cancelAppointment(
@@ -268,7 +300,7 @@ export class AppointmentService {
   ): Promise<PatientAppointmentResponseDto> {
     const patient = await this.getAuthorizedPatient(userId, params.patientId);
 
-    return this.prisma.$transaction(async (tx) => {
+    const cancelledAppointment = await this.prisma.$transaction(async (tx) => {
       const appointment = await tx.appointment.findFirst({
         where: {
           id: params.appointmentId,
@@ -314,6 +346,21 @@ export class AppointmentService {
 
       return this.appointmentResponseMapper.toPatientAppointmentDto(updatedAppointment);
     });
+
+    await this.notifyAppointmentUsers(cancelledAppointment.id, {
+      doctor: {
+        title: 'Appointment cancelled',
+        message: `A patient cancelled the appointment scheduled for ${cancelledAppointment.date} at ${cancelledAppointment.slotStart}.`,
+        type: NotificationType.CANCELLED,
+      },
+      patient: {
+        title: 'Appointment cancelled',
+        message: `Your appointment with ${cancelledAppointment.doctorName} has been cancelled.`,
+        type: NotificationType.CANCELLED,
+      },
+    });
+
+    return cancelledAppointment;
   }
 
   async getDoctorAppointments(
@@ -415,7 +462,16 @@ export class AppointmentService {
       include: appointmentPatientInclude,
     });
 
-    return this.appointmentResponseMapper.toDoctorAppointmentDto(updatedAppointment);
+    const dto = this.appointmentResponseMapper.toDoctorAppointmentDto(updatedAppointment);
+    await this.notificationsService.create({
+      userId: updatedAppointment.patient.userId,
+      appointmentId: updatedAppointment.id,
+      title: 'Appointment confirmed',
+      message: `Your ${dto.consultationType} appointment on ${dto.date} is confirmed. You can now join using the meeting link.`,
+      type: NotificationType.UPCOMING,
+    });
+
+    return dto;
   }
 
   async rejectAppointment(
@@ -430,7 +486,7 @@ export class AppointmentService {
       throw new BadRequestException('Rejection reason is required');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const rejectedAppointment = await this.prisma.$transaction(async (tx) => {
       const appointment = await tx.appointment.findFirst({
         where: {
           id: params.appointmentId,
@@ -471,6 +527,16 @@ export class AppointmentService {
 
       return this.appointmentResponseMapper.toDoctorAppointmentDto(updatedAppointment);
     });
+
+    await this.notifyAppointmentUsers(rejectedAppointment.id, {
+      patient: {
+        title: 'Appointment request declined',
+        message: `Your ${rejectedAppointment.consultationType} appointment request was declined. Reason: ${rejectionReason}`,
+        type: NotificationType.CANCELLED,
+      },
+    });
+
+    return rejectedAppointment;
   }
 
   async cancelDoctorAppointment(
@@ -485,7 +551,7 @@ export class AppointmentService {
       throw new BadRequestException('Cancellation reason is required');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const cancelledAppointment = await this.prisma.$transaction(async (tx) => {
       const appointment = await tx.appointment.findFirst({
         where: {
           id: params.appointmentId,
@@ -534,6 +600,16 @@ export class AppointmentService {
 
       return this.appointmentResponseMapper.toDoctorAppointmentDto(updatedAppointment);
     });
+
+    await this.notifyAppointmentUsers(cancelledAppointment.id, {
+      patient: {
+        title: 'Appointment cancelled by doctor',
+        message: `Your ${cancelledAppointment.consultationType} appointment on ${cancelledAppointment.date} was cancelled. Reason: ${cancellationReason}`,
+        type: NotificationType.CANCELLED,
+      },
+    });
+
+    return cancelledAppointment;
   }
 
   async completeAppointment(
@@ -560,7 +636,7 @@ export class AppointmentService {
       throw new BadRequestException('Recommendations and advice are required');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const completedAppointment = await this.prisma.$transaction(async (tx) => {
       const appointment = await tx.appointment.findFirst({
         where: {
           id: params.appointmentId,
@@ -623,6 +699,16 @@ export class AppointmentService {
 
       return this.appointmentResponseMapper.toDoctorAppointmentDto(updatedAppointment);
     });
+
+    await this.notifyAppointmentUsers(completedAppointment.id, {
+      patient: {
+        title: 'Consultation record available',
+        message: `Your ${completedAppointment.consultationType} consultation record is now available in Medical Records.`,
+        type: NotificationType.UPCOMING,
+      },
+    });
+
+    return completedAppointment;
   }
 
   private async getAuthorizedPatient(userId: string, patientId: string) {
@@ -655,6 +741,41 @@ export class AppointmentService {
     }
 
     return doctor;
+  }
+
+  private async notifyAppointmentUsers(
+    appointmentId: string,
+    notifications: {
+      patient?: { title: string; message: string; type: NotificationType };
+      doctor?: { title: string; message: string; type: NotificationType };
+    },
+  ) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        patient: true,
+        doctor: true,
+      },
+    });
+
+    if (!appointment) return;
+
+    await Promise.all([
+      notifications.patient
+        ? this.notificationsService.create({
+            userId: appointment.patient.userId,
+            appointmentId: appointment.id,
+            ...notifications.patient,
+          })
+        : Promise.resolve(),
+      notifications.doctor
+        ? this.notificationsService.create({
+            userId: appointment.doctor.userId,
+            appointmentId: appointment.id,
+            ...notifications.doctor,
+          })
+        : Promise.resolve(),
+    ]);
   }
 
   private toCalendarDateTime(date: Date, time: Date) {

@@ -10,6 +10,10 @@ import StepSpecialization from './doctor-stepper/StepSpecialization';
 import StepReviewSubmit from './doctor-stepper/StepReviewSubmit';
 import { registerDoctor } from '@/modules/auth/services/auth.service';
 
+const setAuthCookie = (name: string, value: string) => {
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=86400; SameSite=Lax`;
+};
+
 export default function DoctorRegisterStepper() {
   const router = useRouter();
 
@@ -190,6 +194,8 @@ export default function DoctorRegisterStepper() {
       // Save session credentials
       localStorage.setItem('token', result.accessToken);
       localStorage.setItem('user', JSON.stringify({ id: result.userId, email: result.email, role: result.role, doctorId: result.doctorId }));
+      setAuthCookie('auth_token', result.accessToken);
+      setAuthCookie('auth_role', result.role);
 
       setIsSuccess(true);
 

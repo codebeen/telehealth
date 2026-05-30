@@ -5,10 +5,12 @@ import { AppointmentController } from './appointment.controller';
 import { AppointmentResponseMapper } from './mappers/appointment-response.mapper';
 import { GoogleMeetLinkService } from './services/google-meet-link.service';
 import { AppointmentService } from './appointment.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     PrismaModule,
+    NotificationsModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'fallbackSecret',
       signOptions: {

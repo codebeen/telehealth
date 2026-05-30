@@ -11,6 +11,7 @@ COPY . .
 RUN pnpm prisma generate
 RUN pnpm run build
 
+
 FROM node:20-alpine AS runner
 WORKDIR /app
 
@@ -20,12 +21,14 @@ RUN apk add --no-cache openssl
 RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile --prod=false
+COPY prisma ./prisma
+
+RUN pnpm install --frozen-lockfile
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 EXPOSE 3001
 
-CMD ["pnpm", "run", "start:railway"]
+CMD ["sh", "-c", "pnpm prisma migrate deploy && pnpm run start:prod"]

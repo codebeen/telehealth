@@ -78,44 +78,42 @@ export default function ConsultationHistoryList({ records }: ConsultationHistory
           </div>
         )}
 
-        {records.length > recordsPerPage && (
-          <div className="flex items-center justify-end gap-2 border-t border-slate-50 pt-4">
-            <button
-              type="button"
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-              disabled={currentPage === 1}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              title="Previous page"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
-                <button
-                  key={page}
-                  type="button"
-                  onClick={() => setCurrentPage(page)}
-                  className={`h-9 min-w-9 rounded-xl px-3 text-xs font-bold transition-colors ${
-                    currentPage === page
-                      ? 'bg-primary text-white'
-                      : 'border border-slate-100 bg-white text-slate-500 hover:bg-slate-50'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-              disabled={currentPage === totalPages}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              title="Next page"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+        <div className="flex items-center justify-end gap-2 border-t border-slate-50 pt-4">
+          <button
+            type="button"
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            disabled={currentPage === 1}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            title="Previous page"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setCurrentPage(page)}
+                className={`h-9 min-w-9 rounded-xl px-3 text-xs font-bold transition-colors ${
+                  currentPage === page
+                    ? 'bg-primary text-white'
+                    : 'border border-slate-100 bg-white text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
           </div>
-        )}
+          <button
+            type="button"
+            onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            disabled={currentPage === totalPages}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            title="Next page"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );

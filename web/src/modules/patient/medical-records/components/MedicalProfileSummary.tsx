@@ -39,7 +39,7 @@ export default function MedicalProfileSummary({
   const allergyNames = allergiesList.map((a) => a.name).join(', ');
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in duration-300">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
       
       {/* Consultations Summary Card */}
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-xs flex items-center gap-3.5 hover:border-primary/20 transition-all duration-200">
@@ -50,18 +50,6 @@ export default function MedicalProfileSummary({
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none">Consultation Logs</p>
           <p className="text-sm font-extrabold text-slate-900 mt-1.5">{totalConsultations} Session{totalConsultations === 1 ? '' : 's'}</p>
           <p className="text-[10px] font-semibold text-slate-500 mt-0.5">{lastConsultation}</p>
-        </div>
-      </div>
-
-      {/* Prescriptions Summary Card */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-xs flex items-center gap-3.5 hover:border-violet-250 transition-all duration-200">
-        <div className="h-9 w-9 rounded-xl bg-violet-50 border border-violet-100 text-violet-600 flex items-center justify-center font-black shrink-0">
-          <Pill className="h-4.5 w-4.5 animate-pulse" />
-        </div>
-        <div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none">Active Medications</p>
-          <p className="text-sm font-extrabold text-slate-900 mt-1.5">{activePrescriptions} Active</p>
-          <p className="text-[10px] font-semibold text-slate-500 mt-0.5">{totalPrescriptions} total prescribed</p>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/shared/PageHeader';
 import AppointmentCard from './AppointmentCard';
 import AppointmentDetailsModal from './AppointmentDetailsModal';
@@ -12,11 +12,12 @@ import {
   reschedulePatientAppointment,
 } from '../services/appointmentService';
 import { PatientAppointment } from '../types/appointment';
-import { Calendar, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, XCircle, Clock } from 'lucide-react';
 
 export default function PatientAppointmentBooking() {
   const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,6 +66,20 @@ export default function PatientAppointmentBooking() {
       return appt.status === 'Completed' || appt.status === 'Cancelled';
     }
   });
+  const recordsPerPage = 6;
+  const totalPages = Math.max(1, Math.ceil(filteredAppointments.length / recordsPerPage));
+  const paginatedAppointments = useMemo(() => {
+    const start = (currentPage - 1) * recordsPerPage;
+    return filteredAppointments.slice(start, start + recordsPerPage);
+  }, [currentPage, filteredAppointments]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   // Event Handlers
   const handleRescheduleConfirm = async (scheduleId: string) => {
@@ -184,7 +199,7 @@ export default function PatientAppointmentBooking() {
           </div>
         ) : filteredAppointments.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAppointments.map((appt) => (
+            {paginatedAppointments.map((appt) => (
               <AppointmentCard
                 key={appt.id}
                 appointment={appt}
@@ -206,6 +221,45 @@ export default function PatientAppointmentBooking() {
                 ? 'You do not have any upcoming video consultations scheduled.' 
                 : 'Your consultation session archive is currently empty.'}
             </p>
+          </div>
+        )}
+
+        {!isLoading && (
+          <div className="flex items-center justify-center gap-2 border-t border-slate-50 pt-4">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPage === 1}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Previous page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                <button
+                  key={page}
+                  type="button"
+                  onClick={() => setCurrentPage(page)}
+                  className={`h-9 min-w-9 rounded-xl px-3 text-xs font-bold transition-colors ${
+                    currentPage === page
+                      ? 'bg-primary text-white'
+                      : 'border border-slate-100 bg-white text-slate-500 hover:bg-slate-50'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={currentPage === totalPages}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              title="Next page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
         )}
       </div>

@@ -7,6 +7,7 @@ import DoctorCard from './DoctorCard';
 import DoctorScheduleModal from './DoctorScheduleModal';
 import { fetchDoctors, fetchSpecializations, medicalNeeds } from '../services/doctorService';
 import { Doctor } from '../types/doctor';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function DoctorDiscovery() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -14,6 +15,7 @@ export default function DoctorDiscovery() {
   const [selectedNeedId, setSelectedNeedId] = useState<string | null>(null);
   const [selectedDoctorForSchedule, setSelectedDoctorForSchedule] = useState<Doctor | null>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [databaseSpecialties, setDatabaseSpecialties] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +116,20 @@ export default function DoctorDiscovery() {
     const getNumber = (val: string) => parseInt(val.replace(/[^0-9]/g, ''), 10) || 0;
     return [...filteredDoctors].sort((a, b) => getNumber(b.experience) - getNumber(a.experience));
   }, [filteredDoctors]);
+  const recordsPerPage = 6;
+  const totalPages = Math.max(1, Math.ceil(sortedDoctors.length / recordsPerPage));
+  const paginatedDoctors = useMemo(() => {
+    const start = (currentPage - 1) * recordsPerPage;
+    return sortedDoctors.slice(start, start + recordsPerPage);
+  }, [currentPage, sortedDoctors]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedSpecialty, selectedNeedId]);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   const handleBookClick = (doctor: Doctor) => {
     // Quick book triggers showing availability schedule modal
@@ -198,7 +214,7 @@ export default function DoctorDiscovery() {
         </div>
       ) : sortedDoctors.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedDoctors.map((doctor) => (
+          {paginatedDoctors.map((doctor) => (
             <DoctorCard
               key={doctor.id}
               doctor={doctor}
@@ -221,6 +237,45 @@ export default function DoctorDiscovery() {
             className="mt-4 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-primary-dark transition-colors cursor-pointer"
           >
             Reset Filters
+          </button>
+        </div>
+      )}
+
+      {!isLoading && (
+        <div className="flex items-center justify-center gap-2 border-t border-slate-50 pt-4">
+          <button
+            type="button"
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            disabled={currentPage === 1}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            title="Previous page"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setCurrentPage(page)}
+                className={`h-9 min-w-9 rounded-xl px-3 text-xs font-bold transition-colors ${
+                  currentPage === page
+                    ? 'bg-primary text-white'
+                    : 'border border-slate-100 bg-white text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            disabled={currentPage === totalPages}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            title="Next page"
+          >
+            <ChevronRight className="h-4 w-4" />
           </button>
         </div>
       )}

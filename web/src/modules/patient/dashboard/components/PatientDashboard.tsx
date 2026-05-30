@@ -5,28 +5,57 @@ import Link from 'next/link';
 import { 
   Calendar, FileText, Plus, ChevronRight, Search, ShieldCheck 
 } from 'lucide-react';
-import { 
-  mockPrescriptions,
-  mockMedicalHistory,
-  mockConsultations
-} from '@/modules/patient/medical-records/services/medicalRecordService';
 import { PrescriptionRecord, MedicalHistoryItem, ConsultationSessionRecord } from '@/modules/patient/medical-records/types/medicalRecord';
-import { initialAppointments, getDisplayDateFormatted } from '@/modules/patient/appointment/services/appointmentService';
+import { getDisplayDateFormatted } from '@/modules/patient/appointment/services/appointmentService';
 import { PatientAppointment } from '@/modules/patient/appointment/types/appointment';
 import PatientSummaryCards from './PatientSummaryCards';
 import PageHeader from '@/components/shared/PageHeader';
+import { fetchPatientDashboard } from '../services/dashboardService';
 
 export default function PatientDashboard() {
   const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
   const [prescriptionsList, setPrescriptionsList] = useState<PrescriptionRecord[]>([]);
   const [medicalHistoryList, setMedicalHistoryList] = useState<MedicalHistoryItem[]>([]);
   const [consultationsList, setConsultationsList] = useState<ConsultationSessionRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setAppointments(initialAppointments.filter(a => a.status === 'Upcoming'));
-    setPrescriptionsList(mockPrescriptions);
-    setMedicalHistoryList(mockMedicalHistory);
-    setConsultationsList(mockConsultations);
+    let isMounted = true;
+
+    const loadDashboard = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await fetchPatientDashboard();
+
+        if (!isMounted) return;
+
+        setAppointments(data.upcomingAppointments);
+        setPrescriptionsList(data.prescriptions);
+        setMedicalHistoryList(data.medicalHistory);
+        setConsultationsList(data.consultations);
+      } catch (err) {
+        console.error('Failed to load patient dashboard:', err);
+        if (isMounted) {
+          setAppointments([]);
+          setPrescriptionsList([]);
+          setMedicalHistoryList([]);
+          setConsultationsList([]);
+          setError('We could not load your dashboard details right now.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadDashboard();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
@@ -37,6 +66,12 @@ export default function PatientDashboard() {
         title="Dashboard" 
         description="Overview of your medical records and appointments." 
       />
+
+      {error && (
+        <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-500">
+          {error}
+        </div>
+      )}
 
       {/* Patient Summary Cards */}
       <PatientSummaryCards
@@ -68,7 +103,11 @@ export default function PatientDashboard() {
             </div>
 
             <div className="space-y-4">
-              {appointments.length > 0 ? (
+              {isLoading ? (
+                Array.from({ length: 2 }).map((_, index) => (
+                  <div key={index} className="h-24 rounded-2xl border border-slate-100 bg-slate-50/60 animate-pulse" />
+                ))
+              ) : appointments.length > 0 ? (
                 appointments.map((appointment) => (
                   <div 
                     key={appointment.id} 
@@ -92,7 +131,7 @@ export default function PatientDashboard() {
 
                     <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-accent-light text-accent">
-                        Confirmed
+                        {appointment.status}
                       </span>
                       
                       <Link 
@@ -128,7 +167,12 @@ export default function PatientDashboard() {
             </div>
 
             <div className="space-y-3.5">
-              {prescriptionsList.map((script) => (
+              {isLoading ? (
+                Array.from({ length: 2 }).map((_, index) => (
+                  <div key={index} className="h-20 rounded-2xl border border-slate-100 bg-slate-50/60 animate-pulse" />
+                ))
+              ) : prescriptionsList.length > 0 ? (
+              prescriptionsList.map((script) => (
                 <div key={script.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-2xl hover:bg-slate-50/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 border border-slate-100 text-slate-500">
@@ -154,7 +198,12 @@ export default function PatientDashboard() {
                     </button>
                   </div>
                 </div>
-              ))}
+              ))
+              ) : (
+                <p className="py-6 text-center text-xs font-semibold text-slate-400">
+                  No active prescriptions from completed consultations.
+                </p>
+              )}
             </div>
           </div>
 
@@ -234,7 +283,11 @@ export default function PatientDashboard() {
             </div>
             
             <div className="space-y-4">
-              {consultationsList.slice(0, 2).map((consultation) => (
+              {isLoading ? (
+                Array.from({ length: 2 }).map((_, index) => (
+                  <div key={index} className="h-28 rounded-2xl border border-slate-100 bg-slate-50/60 animate-pulse" />
+                ))
+              ) : consultationsList.slice(0, 2).map((consultation) => (
                 <div key={consultation.id} className="space-y-2 border-b border-slate-50 pb-3 last:border-0 last:pb-0">
                   <div className="flex justify-between items-start">
                     <div>
@@ -249,16 +302,16 @@ export default function PatientDashboard() {
                   <div className="bg-slate-50/50 rounded-xl p-2.5 space-y-1.5">
                     <div className="flex gap-1.5 items-start">
                       <span className="text-[9px] font-bold text-accent bg-accent-light px-1.5 py-0.5 rounded leading-none shrink-0 mt-0.5">
-                        Diagnosis
+                        Type
                       </span>
                       <p className="text-[10px] font-semibold text-slate-700 leading-tight">
-                        {consultation.diagnosis}
+                        {consultation.consultationType}
                       </p>
                     </div>
                     
                     <div className="text-[10px] text-slate-500 leading-relaxed pl-1.5 border-l-2 border-slate-200">
                       <span className="font-bold text-[9px] text-slate-400 block uppercase tracking-wider mb-0.5">Doctor Notes</span>
-                      {consultation.treatmentNotes}
+                      {consultation.finalSummary || consultation.recommendations || 'No summary provided.'}
                     </div>
                   </div>
                 </div>

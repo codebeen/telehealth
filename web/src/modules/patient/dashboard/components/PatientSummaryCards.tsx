@@ -21,10 +21,10 @@ export default function PatientSummaryCards({
 }: PatientSummaryCardsProps) {
   
   // Calculate upcoming appointments (should already be filtered, but double check)
-  const upcomingCount = appointments.filter(a => a.status === 'Upcoming').length;
+  const upcomingCount = appointments.filter(a => a.status === 'Upcoming' || a.status === 'Pending').length;
   // Get next upcoming appointment details
   const sortedUpcoming = [...appointments]
-    .filter(a => a.status === 'Upcoming')
+    .filter(a => a.status === 'Upcoming' || a.status === 'Pending')
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   
   const nextAppt = sortedUpcoming[0];

@@ -2,17 +2,21 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
 import { TextField } from '@/components/ui/TextField';
+import { login } from '@/modules/auth/services/auth.service';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validate = () => {
-    const newErrors: { email?: string; password?: string } = {};
+    const newErrors: Record<string, string> = {};
     if (!email.trim()) {
       newErrors.email = 'Email address is required.';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -24,12 +28,34 @@ export default function LoginPage() {
     return newErrors;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors = validate();
     setErrors(newErrors);
     if (Object.keys(newErrors).length === 0) {
-      // TODO: submit
+      setIsSubmitting(true);
+      try {
+        const { accessToken, user } = await login({ email, password });
+        
+        // Save to localStorage
+        localStorage.setItem('token', accessToken);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        // Redirect based on role
+        if (user.role === 'DOCTOR') {
+          router.push('/doctor/dashboard');
+        } else {
+          router.push('/patient/dashboard');
+        }
+      } catch (err: any) {
+        const apiMessage = err.response?.data?.message;
+        const message = Array.isArray(apiMessage)
+          ? apiMessage.join(', ')
+          : apiMessage;
+        setErrors({ submit: message || err.message || 'Authentication failed. Please check your credentials.' });
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -46,6 +72,13 @@ export default function LoginPage() {
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
+        {errors.submit && (
+          <div className="p-3.5 text-xs font-semibold text-red-500 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+            <span>{errors.submit}</span>
+          </div>
+        )}
+
         <TextField
           id="email"
           label="Email address"
@@ -55,7 +88,7 @@ export default function LoginPage() {
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
-            if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+            if (errors.email || errors.submit) setErrors((prev) => ({ ...prev, email: '', submit: '' }));
           }}
           icon={Mail}
           error={errors.email}
@@ -71,7 +104,7 @@ export default function LoginPage() {
           value={password}
           onChange={(e) => {
             setPassword(e.target.value);
-            if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+            if (errors.password || errors.submit) setErrors((prev) => ({ ...prev, password: '', submit: '' }));
           }}
           icon={Lock}
           error={errors.password}
@@ -106,9 +139,17 @@ export default function LoginPage() {
         <div className="pt-2">
           <button
             type="submit"
-            className="flex w-full h-11 items-center justify-center rounded-xl bg-primary text-xs font-bold text-white shadow-md shadow-primary/25 hover:bg-primary-dark hover:scale-[1.02] transition-all duration-150"
+            disabled={isSubmitting}
+            className="flex w-full h-11 items-center justify-center rounded-xl bg-primary text-xs font-bold text-white shadow-md shadow-primary/25 hover:bg-primary-dark hover:scale-[1.02] transition-all duration-150 disabled:opacity-75 cursor-pointer"
           >
-            Sign In
+            {isSubmitting ? (
+              <>
+                <div className="mr-2 h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              'Sign In'
+            )}
           </button>
         </div>
       </form>

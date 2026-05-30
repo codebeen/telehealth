@@ -8,6 +8,7 @@ import StepCredentials from './StepCredentials';
 import StepPersonalInfo from './patient-stepper/StepPersonalInfo';
 import StepMedicalHistory from './patient-stepper/StepMedicalHistory';
 import StepReviewSubmit from './patient-stepper/StepReviewSubmit';
+import { registerPatient } from '@/modules/auth/services/auth.service';
 
 interface MedicalHistoryItem {
   id: string;
@@ -173,31 +174,71 @@ export default function PatientRegisterStepper() {
   };
 
   // Form submission
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep(4)) return;
     
     setIsSubmitting(true);
+    setErrors({});
 
-    // Save registration details to localStorage to mock dashboard linkage
-    const registeredProfile = {
-      allergies: allergies.split(',').map((a) => a.trim()).filter(Boolean),
-      medicalHistories: medicalHistories,
-      bloodType: bloodType,
-      weight: weight,
-      height: height,
+    const payload = {
+      email,
+      password,
+      profile: {
+        firstName,
+        middleName: middleName || undefined,
+        lastName,
+        suffix: suffix || undefined,
+        birthDate: birthDate,
+        gender,
+        phoneNumber,
+      },
+      address: {
+        streetLine1,
+        streetLine2: streetLine2 || undefined,
+        barangay,
+        city,
+        province,
+        zipCode,
+        country: country || 'Philippines',
+      },
+      weight: weight ? parseFloat(weight) : undefined,
+      height: height ? parseFloat(height) : undefined,
+      bloodType: bloodType || undefined,
+      emergencyContactName: emergencyContactName || undefined,
+      emergencyContactNumber: emergencyContactNumber || undefined,
     };
-    localStorage.setItem('registered_patient_profile', JSON.stringify(registeredProfile));
-    
-    // Simulate API registration call
-    setTimeout(() => {
-      setIsSubmitting(false);
+
+    try {
+      const result = await registerPatient(payload);
+
+      // Save registration details to localStorage to mock dashboard linkage
+      const registeredProfile = {
+        allergies: allergies.split(',').map((a) => a.trim()).filter(Boolean),
+        medicalHistories: medicalHistories,
+        bloodType: bloodType,
+        weight: weight,
+        height: height,
+        email: result.email,
+        userId: result.userId,
+        patientId: result.patientId,
+      };
+      localStorage.setItem('registered_patient_profile', JSON.stringify(registeredProfile));
+      
       setIsSuccess(true);
       
       // Redirect to patient dashboard after 2 seconds
       setTimeout(() => {
         router.push('/patient/dashboard');
       }, 2000);
-    }, 1500);
+    } catch (err: any) {
+      const apiMessage = err.response?.data?.message;
+      const message = Array.isArray(apiMessage)
+        ? apiMessage.join(', ')
+        : apiMessage;
+      setErrors({ api: message || err.message || 'An error occurred during registration' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSuccess) {
@@ -276,9 +317,13 @@ export default function PatientRegisterStepper() {
         </div>
       </div>
 
-      {/* Form Content */}
       <div className="bg-white rounded-2xl border border-slate-100 p-5 sm:p-6 shadow-xs">
         <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+          {errors.api && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
+              {errors.api}
+            </div>
+          )}
           
           {currentStep === 1 && (
             <StepCredentials

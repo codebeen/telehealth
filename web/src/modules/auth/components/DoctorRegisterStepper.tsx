@@ -8,6 +8,7 @@ import StepCredentials from './StepCredentials';
 import StepPersonalInfo from './doctor-stepper/StepPersonalInfo';
 import StepSpecialization from './doctor-stepper/StepSpecialization';
 import StepReviewSubmit from './doctor-stepper/StepReviewSubmit';
+import { registerDoctor } from '@/modules/auth/services/auth.service';
 
 export default function DoctorRegisterStepper() {
   const router = useRouter();
@@ -138,21 +139,69 @@ export default function DoctorRegisterStepper() {
   };
 
   // Form submission
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateStep(4)) return;
 
     setIsSubmitting(true);
+    setErrors({});
 
-    // Simulate API registration call for Doctor
-    setTimeout(() => {
-      setIsSubmitting(false);
+    const payload = {
+      email,
+      password,
+      profile: {
+        firstName,
+        middleName: middleName || undefined,
+        lastName,
+        suffix: suffix || undefined,
+        birthDate: birthDate,
+        gender,
+        phoneNumber,
+      },
+      address: {
+        streetLine1,
+        streetLine2: streetLine2 || undefined,
+        barangay,
+        city,
+        province,
+        zipCode,
+        country: country || 'Philippines',
+      },
+      licenseNumber,
+      bio: bio || undefined,
+      yearsOfExperience: 5,
+      consultationFee: 500,
+      specializationNames: specializations,
+    };
+
+    try {
+      const result = await registerDoctor(payload);
+
+      // Save registration details to localStorage to mock dashboard linkage
+      const registeredProfile = {
+        specializations: specializations,
+        licenseNumber: licenseNumber,
+        bio: bio,
+        email: result.email,
+        userId: result.userId,
+        doctorId: result.doctorId,
+      };
+      localStorage.setItem('registered_doctor_profile', JSON.stringify(registeredProfile));
+
       setIsSuccess(true);
 
       // Redirect to doctor dashboard after 2 seconds
       setTimeout(() => {
         router.push('/doctor/dashboard');
       }, 2000);
-    }, 1500);
+    } catch (err: any) {
+      const apiMessage = err.response?.data?.message;
+      const message = Array.isArray(apiMessage)
+        ? apiMessage.join(', ')
+        : apiMessage;
+      setErrors({ api: message || err.message || 'An error occurred during registration' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isSuccess) {
@@ -231,9 +280,13 @@ export default function DoctorRegisterStepper() {
         </div>
       </div>
 
-      {/* Form Content */}
       <div className="bg-white rounded-2xl border border-slate-100 p-5 sm:p-6 shadow-xs">
         <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+          {errors.api && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
+              {errors.api}
+            </div>
+          )}
           {currentStep === 1 && (
             <StepCredentials
               email={email}
@@ -369,7 +422,7 @@ export default function DoctorRegisterStepper() {
       {currentStep === 1 && (
         <div className="text-center pt-2">
           <Link
-            href="/"
+            href="/register/patient"
             className="inline-flex w-full h-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:scale-102 transition-all duration-150 shadow-xs"
           >
             Register as Patient

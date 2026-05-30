@@ -1,16 +1,15 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { Clock, Eye, Check, X, Video } from 'lucide-react';
+import { Clock, Eye, Check, X, Video, FileText } from 'lucide-react';
 import { DoctorAppointment } from '../types/appointment';
 
 interface AppointmentItemProps {
   appt: DoctorAppointment;
   onViewDetails: (appt: DoctorAppointment) => void;
-  onConfirm: (id: number) => void;
-  onReject: (id: number) => void;
-  onCancel: (id: number) => void;
+  onConfirm: (id: string) => void;
+  onReject: (id: string) => void;
+  onCancel: (id: string) => void;
 }
 
 export default function AppointmentItem({
@@ -18,7 +17,7 @@ export default function AppointmentItem({
   onViewDetails,
   onConfirm,
   onReject,
-  onCancel
+  onCancel,
 }: AppointmentItemProps) {
   
   const getStatusBadgeClass = (status: DoctorAppointment['status']) => {
@@ -62,6 +61,17 @@ export default function AppointmentItem({
             <span className="text-slate-300">•</span>
             <span className="text-slate-500 font-semibold">{appt.type}</span>
           </div>
+          <p className="mt-1.5 flex max-w-2xl items-start gap-1.5 text-[10px] font-medium leading-relaxed text-slate-500">
+            <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span className="line-clamp-2">
+              <span className="font-bold text-slate-600">Reason:</span> {appt.visitReason}
+            </span>
+          </p>
+          {appt.status === 'Cancelled' && appt.cancellationReason && (
+            <p className="mt-1 text-[10px] font-semibold leading-relaxed text-rose-600">
+              <span className="font-bold">Cancellation:</span> {appt.cancellationReason}
+            </p>
+          )}
         </div>
       </div>
 
@@ -96,12 +106,14 @@ export default function AppointmentItem({
 
         {appt.status === 'Confirmed' && (
           <>
-            <Link
-              href="/doctor/consultation/session"
+            <a
+              href={appt.meetingLink ?? '#'}
+              target="_blank"
+              rel="noreferrer"
               className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white hover:bg-primary-dark transition-colors shadow-xs shadow-primary/10 flex items-center gap-1"
             >
               <Video className="h-3.5 w-3.5" /> Start Call
-            </Link>
+            </a>
             <button 
               onClick={() => onCancel(appt.id)}
               className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-colors"

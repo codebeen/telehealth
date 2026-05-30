@@ -1,16 +1,15 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { X, Mail, Phone, Clock, Video, Check, AlertCircle } from 'lucide-react';
 import { DoctorAppointment } from '../types/appointment';
 
 interface AppointmentDetailsModalProps {
   appt: DoctorAppointment | null;
   onClose: () => void;
-  onConfirm: (id: number) => void;
-  onReject: (id: number) => void;
-  onCancel: (id: number) => void;
+  onConfirm: (id: string) => void;
+  onReject: (id: string) => void;
+  onCancel: (id: string) => void;
 }
 
 export default function AppointmentDetailsModal({
@@ -18,7 +17,7 @@ export default function AppointmentDetailsModal({
   onClose,
   onConfirm,
   onReject,
-  onCancel
+  onCancel,
 }: AppointmentDetailsModalProps) {
   
   if (!appt) return null;
@@ -53,7 +52,7 @@ export default function AppointmentDetailsModal({
         <div className="flex justify-between items-start">
           <div>
             <h3 className="text-base font-extrabold text-brand-text">Appointment Info</h3>
-            <p className="text-[10px] font-semibold text-slate-400 mt-0.5">ID: APPT-00{appt.id}</p>
+            <p className="text-[10px] font-semibold text-slate-400 mt-0.5">ID: {appt.id}</p>
           </div>
           <button 
             onClick={onClose}
@@ -62,6 +61,29 @@ export default function AppointmentDetailsModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {appt.status === 'Rejected' && appt.rejectionReason && (
+          <div className="space-y-2">
+            <span className="block text-[10px] font-bold text-rose-400 uppercase tracking-wider">Rejection Reason</span>
+            <div className="bg-rose-50 rounded-2xl p-4 text-xs text-rose-700 leading-relaxed border border-rose-100">
+              {appt.rejectionReason}
+            </div>
+          </div>
+        )}
+
+        {appt.status === 'Confirmed' && appt.meetingLink && (
+          <div className="space-y-2">
+            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Google Meet Link</span>
+            <a
+              href={appt.meetingLink}
+              target="_blank"
+              rel="noreferrer"
+              className="block break-all bg-primary-light rounded-2xl p-4 text-xs text-primary font-bold leading-relaxed border border-primary/10 hover:bg-primary/10 transition-colors"
+            >
+              {appt.meetingLink}
+            </a>
+          </div>
+        )}
 
         {/* Patient card details */}
         <div className="flex items-center gap-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100/50">
@@ -108,6 +130,15 @@ export default function AppointmentDetailsModal({
           </div>
         </div>
 
+        {appt.status === 'Cancelled' && appt.cancellationReason && (
+          <div className="space-y-2">
+            <span className="block text-[10px] font-bold text-rose-400 uppercase tracking-wider">Cancellation Reason</span>
+            <div className="bg-rose-50 rounded-2xl p-4 text-xs text-rose-700 leading-relaxed border border-rose-100">
+              {appt.cancellationReason}
+            </div>
+          </div>
+        )}
+
         {/* Modal actions */}
         <div className="flex gap-3 pt-2">
           {appt.status === 'Pending' && (
@@ -135,12 +166,14 @@ export default function AppointmentDetailsModal({
 
           {appt.status === 'Confirmed' && (
             <>
-              <Link 
-                href="/doctor/consultation/session"
+              <a
+                href={appt.meetingLink ?? '#'}
+                target="_blank"
+                rel="noreferrer"
                 className="flex-1 rounded-2xl bg-primary py-3 text-xs font-bold text-white hover:bg-primary-dark shadow-md shadow-primary/15 transition-all flex items-center justify-center gap-1.5"
               >
                 <Video className="h-4 w-4" /> Join Room Call
-              </Link>
+              </a>
               <button 
                 onClick={() => {
                   onCancel(appt.id);

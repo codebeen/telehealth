@@ -58,6 +58,7 @@ export const initialAppointments: PatientAppointment[] = [
     slotStart: '09:30 AM',
     slotEnd: '10:00 AM',
     status: 'Upcoming',
+    consultationType: 'Follow-up Consultation',
     visitReason: 'Follow-up consultation regarding recent ECG scans and minor chest discomfort during exercise.',
     roomId: 'Consultation Room B4'
   },
@@ -73,6 +74,7 @@ export const initialAppointments: PatientAppointment[] = [
     slotStart: '02:00 PM',
     slotEnd: '02:30 PM',
     status: 'Completed',
+    consultationType: 'General Consultation',
     visitReason: 'Annual wellness exam, checking blood pressure trends, and renewing cholesterol prescription medication.',
     roomId: 'Consultation Room A1'
   },
@@ -88,6 +90,7 @@ export const initialAppointments: PatientAppointment[] = [
     slotStart: '11:00 AM',
     slotEnd: '11:30 AM',
     status: 'Upcoming',
+    consultationType: 'Specialist Consultation',
     visitReason: 'Assessment of persistent dry patch skin irritation on the right forearm.',
     roomId: 'Consultation Room C2'
   },
@@ -103,6 +106,7 @@ export const initialAppointments: PatientAppointment[] = [
     slotStart: '03:30 PM',
     slotEnd: '04:00 PM',
     status: 'Cancelled',
+    consultationType: 'Specialist Consultation',
     visitReason: 'Neurological consult regarding chronic tension headaches and fatigue.',
     roomId: 'Consultation Room D1',
     cancelReason: 'Emergency business meeting travel overlap.'

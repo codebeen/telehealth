@@ -12,6 +12,7 @@ export class BookConsultationResponseDto {
   appointmentDate: string;
   startTime: string;
   endTime: string;
+  consultationType: string;
   reasonForConsultation?: string | null;
   doctor: BookedDoctorResponseDto;
 }

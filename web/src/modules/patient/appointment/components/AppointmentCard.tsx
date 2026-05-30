@@ -19,6 +19,7 @@ export default function AppointmentCard({
   const displayDate = getDisplayDateFormatted(appointment.date);
   
   const statusColorMap = {
+    Pending: 'bg-amber-50 text-amber-600 border-amber-100',
     Upcoming: 'bg-accent-light text-accent border-accent/10',
     Completed: 'bg-primary-light text-primary border-primary/10',
     Cancelled: 'bg-rose-50 text-rose-500 border-rose-100',
@@ -57,6 +58,10 @@ export default function AppointmentCard({
             <Clock className="h-3.5 w-3.5 text-primary" />
             <span>{appointment.slotStart} - {appointment.slotEnd}</span>
           </div>
+          <div className="flex items-center gap-2">
+            <User className="h-3.5 w-3.5 text-primary" />
+            <span>{appointment.consultationType}</span>
+          </div>
         </div>
 
         {/* Short reason for visit */}
@@ -84,7 +89,7 @@ export default function AppointmentCard({
           <Eye className="h-3.5 w-3.5" /> View Details
         </button>
 
-        {appointment.status === 'Upcoming' && (
+        {(appointment.status === 'Pending' || appointment.status === 'Upcoming') && (
           <>
             <button
               onClick={() => onReschedule(appointment)}

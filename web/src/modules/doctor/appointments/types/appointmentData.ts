@@ -2,7 +2,8 @@ import { DoctorAppointment } from './appointment';
 
 const INITIAL_APPOINTMENT_DATA: DoctorAppointment[] = [
   { 
-    id: 1, 
+    id: '1',
+    patientId: 'patient-1',
     patient: 'Alexander Goth', 
     email: 'alexander.goth@example.com', 
     phone: '+1 (555) 019-2834', 
@@ -14,7 +15,8 @@ const INITIAL_APPOINTMENT_DATA: DoctorAppointment[] = [
     avatar: 'AG'
   },
   { 
-    id: 2, 
+    id: '2',
+    patientId: 'patient-2',
     patient: 'Beatrice Vance', 
     email: 'beatrice.vance@example.com', 
     phone: '+1 (555) 021-9841', 
@@ -26,7 +28,8 @@ const INITIAL_APPOINTMENT_DATA: DoctorAppointment[] = [
     avatar: 'BV'
   },
   { 
-    id: 3, 
+    id: '3',
+    patientId: 'patient-3',
     patient: 'Corbin Dallas', 
     email: 'corbin.dallas@example.com', 
     phone: '+1 (555) 039-4411', 
@@ -38,7 +41,8 @@ const INITIAL_APPOINTMENT_DATA: DoctorAppointment[] = [
     avatar: 'CD'
   },
   { 
-    id: 4, 
+    id: '4',
+    patientId: 'patient-4',
     patient: 'Diana Prince', 
     email: 'diana.prince@example.com', 
     phone: '+1 (555) 042-3322', 
@@ -50,7 +54,8 @@ const INITIAL_APPOINTMENT_DATA: DoctorAppointment[] = [
     avatar: 'DP'
   },
   { 
-    id: 5, 
+    id: '5',
+    patientId: 'patient-5',
     patient: 'Bruce Wayne', 
     email: 'bruce.wayne@example.com', 
     phone: '+1 (555) 088-7711', 
@@ -62,7 +67,8 @@ const INITIAL_APPOINTMENT_DATA: DoctorAppointment[] = [
     avatar: 'BW'
   },
   { 
-    id: 6, 
+    id: '6',
+    patientId: 'patient-6',
     patient: 'Ezra Bridger', 
     email: 'ezra.bridger@example.com', 
     phone: '+1 (555) 091-2288', 
@@ -74,7 +80,8 @@ const INITIAL_APPOINTMENT_DATA: DoctorAppointment[] = [
     avatar: 'EB'
   },
   { 
-    id: 7, 
+    id: '7',
+    patientId: 'patient-7',
     patient: 'Fiona Gallagher', 
     email: 'fiona.gallagher@example.com', 
     phone: '+1 (555) 044-8899', 

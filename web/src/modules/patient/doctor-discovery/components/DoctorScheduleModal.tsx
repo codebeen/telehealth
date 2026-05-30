@@ -15,6 +15,13 @@ const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
+const CONSULTATION_TYPES = [
+  'General Consultation',
+  'Follow-up Consultation',
+  'Prescription Refill',
+  'Urgent Concern',
+  'Specialist Consultation',
+];
 
 const formatKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -27,6 +34,8 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string>(formatKey(today));
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [consultationType, setConsultationType] = useState(CONSULTATION_TYPES[0]);
+  const [reasonForConsultation, setReasonForConsultation] = useState('');
   const [bookingStep, setBookingStep] = useState<'browse' | 'confirming' | 'success'>('browse');
   const [bookingError, setBookingError] = useState<string | null>(null);
 
@@ -80,12 +89,23 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
 
   const handleConfirmBooking = async () => {
     if (!selectedSlot) return;
+
+    const trimmedType = consultationType.trim();
+    const trimmedReason = reasonForConsultation.trim();
+
+    if (!trimmedType || !trimmedReason) {
+      setBookingError('Please provide the consultation type and reason before confirming.');
+      return;
+    }
+
     setBookingStep('confirming');
 
     try {
       await bookConsultation({
         doctorId: doctor.id,
         scheduleId: selectedSlot.id,
+        consultationType: trimmedType,
+        reasonForConsultation: trimmedReason,
       });
       onBooked?.(doctor.id, selectedSlot.id);
       setBookingStep('success');
@@ -139,9 +159,9 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
             </div>
             
             <div className="space-y-2">
-              <h4 className="text-lg font-extrabold text-brand-text">Consultation Confirmed!</h4>
+              <h4 className="text-lg font-extrabold text-brand-text">Booking Request Sent</h4>
               <p className="text-xs text-slate-400 max-w-sm">
-                Your appointment with <span className="font-bold text-brand-text">{doctor.name}</span> has been successfully booked.
+                Your appointment with <span className="font-bold text-brand-text">{doctor.name}</span> is pending doctor approval.
               </p>
             </div>
 
@@ -168,7 +188,11 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
                 </div>
                 <div className="space-y-1">
                   <span className="text-[9px] text-slate-400 font-bold uppercase block">Type</span>
-                  <span>Video Consultation</span>
+                  <span>{consultationType}</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[9px] text-slate-400 font-bold uppercase block">Status</span>
+                  <span className="text-amber-600">Pending</span>
                 </div>
               </div>
             </div>
@@ -380,6 +404,46 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
 
             </div>
 
+            <div className="border border-slate-100 rounded-2xl p-4 bg-white shadow-xs space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className="space-y-1.5">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                    Consultation Type
+                  </span>
+                  <select
+                    value={consultationType}
+                    onChange={(event) => {
+                      setConsultationType(event.target.value);
+                      setBookingError(null);
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/30 px-3 py-2.5 text-xs font-bold text-brand-text outline-hidden focus:border-primary focus:bg-white transition-all"
+                  >
+                    {CONSULTATION_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1.5 md:col-span-2">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                    Reason for Consultation
+                  </span>
+                  <textarea
+                    value={reasonForConsultation}
+                    onChange={(event) => {
+                      setReasonForConsultation(event.target.value);
+                      setBookingError(null);
+                    }}
+                    maxLength={1000}
+                    placeholder="Describe your symptoms, concern, or what you want to discuss."
+                    className="h-24 w-full resize-none rounded-xl border border-slate-200 bg-slate-50/30 p-3 text-xs font-semibold text-brand-text outline-hidden focus:border-primary focus:bg-white transition-all"
+                  />
+                </label>
+              </div>
+            </div>
+
             {/* Footer Summary / Trigger */}
             <div className="border-t border-slate-50 pt-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
               <div className="text-center sm:text-left">
@@ -402,10 +466,10 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
                   Cancel
                 </button>
                 <button
-                  disabled={!selectedSlot || bookingStep === 'confirming'}
+                  disabled={!selectedSlot || !consultationType.trim() || !reasonForConsultation.trim() || bookingStep === 'confirming'}
                   onClick={handleConfirmBooking}
                   className={`flex-1 sm:flex-none rounded-xl px-5 py-2.5 text-xs font-bold text-white transition-all ${
-                    !selectedSlot || bookingStep === 'confirming'
+                    !selectedSlot || !consultationType.trim() || !reasonForConsultation.trim() || bookingStep === 'confirming'
                       ? 'bg-slate-300 cursor-not-allowed'
                       : 'bg-primary hover:bg-primary-dark shadow-xs'
                   }`}

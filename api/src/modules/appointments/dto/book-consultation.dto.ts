@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class BookConsultationDto {
   @IsUUID()
@@ -7,8 +7,13 @@ export class BookConsultationDto {
   @IsUUID()
   scheduleId: string;
 
-  @IsOptional()
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  consultationType: string;
+
+  @IsString()
+  @IsNotEmpty()
   @MaxLength(1000)
-  reasonForConsultation?: string;
+  reasonForConsultation: string;
 }

@@ -1,4 +1,4 @@
-export type AppointmentStatus = 'Upcoming' | 'Completed' | 'Cancelled';
+export type AppointmentStatus = 'Pending' | 'Upcoming' | 'Completed' | 'Cancelled';
 
 export interface PatientAppointment {
   id: string;
@@ -12,6 +12,7 @@ export interface PatientAppointment {
   slotStart: string; // e.g. "10:00 AM"
   slotEnd: string; // e.g. "10:30 AM"
   status: AppointmentStatus;
+  consultationType: string;
   visitReason: string;
   roomId: string;
   cancelReason?: string;

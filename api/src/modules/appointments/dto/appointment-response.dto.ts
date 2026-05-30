@@ -1,4 +1,4 @@
-export type PatientAppointmentStatusDto = 'Upcoming' | 'Completed' | 'Cancelled';
+export type PatientAppointmentStatusDto = 'Pending' | 'Upcoming' | 'Completed' | 'Cancelled';
 
 export class PatientAppointmentResponseDto {
   id: string;
@@ -12,6 +12,7 @@ export class PatientAppointmentResponseDto {
   slotStart: string;
   slotEnd: string;
   status: PatientAppointmentStatusDto;
+  consultationType: string;
   visitReason: string;
   roomId: string;
   cancelReason?: string;

@@ -11,11 +11,13 @@ model Appointment {
   appointmentDate        DateTime          @map("appointment_date") @db.Date
   startTime              DateTime          @map("start_time") @db.Time()
   endTime                DateTime          @map("end_time") @db.Time()
+  consultationType       String?           @map("consultation_type") @db.VarChar(100)
   reasonForConsultation  String?           @map("reason_for_consultation") @db.Text
   status                 AppointmentStatus @default(PENDING)
   meetingLink            String?           @map("meeting_link") @db.Text
   cancelledById          String?           @map("cancelled_by") @db.Uuid
   cancellationReason     String?           @map("cancellation_reason") @db.Text
+  rejectionReason        String?           @map("rejection_reason") @db.Text
   createdAt              DateTime          @default(now()) @map("created_at")
   updatedAt              DateTime          @updatedAt @map("updated_at")
   deletedAt              DateTime?         @map("deleted_at")

@@ -15,10 +15,17 @@ import { PatientAppointmentsQueryDto } from './dto/patient-appointments-query.dt
 import { RescheduleAppointmentDto } from './dto/reschedule-appointment.dto';
 import { PatientAppointmentResponseDto } from './dto/appointment-response.dto';
 import { BookConsultationResponseDto } from './dto/book-consultation-response.dto';
+import { DoctorAppointmentResponseDto } from './dto/doctor-appointment-response.dto';
+import { DoctorAppointmentActionParamDto } from './dto/doctor-appointment-action-param.dto';
+import { DoctorAppointmentParamDto } from './dto/doctor-appointment-param.dto';
+import { DoctorAppointmentsQueryDto } from './dto/doctor-appointments-query.dto';
+import { RejectAppointmentDto } from './dto/reject-appointment.dto';
 import {
   appointmentDoctorInclude,
+  appointmentPatientInclude,
   AppointmentResponseMapper,
 } from './mappers/appointment-response.mapper';
+import { GoogleMeetLinkService } from './services/google-meet-link.service';
 
 @Injectable()
 export class AppointmentService {
@@ -31,6 +38,7 @@ export class AppointmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly appointmentResponseMapper: AppointmentResponseMapper,
+    private readonly googleMeetLinkService: GoogleMeetLinkService,
   ) {}
 
   async getPatientAppointments(
@@ -48,7 +56,15 @@ export class AppointmentService {
           ? { status: { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED, AppointmentStatus.RESCHEDULED] } }
           : {}),
         ...(dto.view === 'past'
-          ? { status: { in: [AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED] } }
+          ? {
+              status: {
+                in: [
+                  AppointmentStatus.COMPLETED,
+                  AppointmentStatus.CANCELLED,
+                  AppointmentStatus.REJECTED,
+                ],
+              },
+            }
           : {}),
       },
       include: appointmentDoctorInclude,
@@ -73,6 +89,17 @@ export class AppointmentService {
 
     if (!patient) {
       throw new ForbiddenException('Only patients can book consultations');
+    }
+
+    const consultationType = dto.consultationType.trim();
+    const reasonForConsultation = dto.reasonForConsultation.trim();
+
+    if (!consultationType) {
+      throw new BadRequestException('Consultation type is required');
+    }
+
+    if (!reasonForConsultation) {
+      throw new BadRequestException('Reason for consultation is required');
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -114,11 +141,12 @@ export class AppointmentService {
           appointmentDate: schedule.scheduleDate,
           startTime: schedule.startTime,
           endTime: schedule.endTime,
-          reasonForConsultation: dto.reasonForConsultation,
-          status: AppointmentStatus.CONFIRMED,
+          consultationType,
+          reasonForConsultation,
+          status: AppointmentStatus.PENDING,
           statusHistories: {
             create: {
-              status: AppointmentStatus.CONFIRMED,
+              status: AppointmentStatus.PENDING,
               changedById: userId,
               notes: 'Consultation booked by patient',
             },
@@ -287,6 +315,213 @@ export class AppointmentService {
     });
   }
 
+  async getDoctorAppointments(
+    userId: string,
+    params: DoctorAppointmentParamDto,
+    dto: DoctorAppointmentsQueryDto,
+  ): Promise<DoctorAppointmentResponseDto[]> {
+    const doctor = await this.getAuthorizedDoctor(userId, params.doctorId);
+
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        doctorId: doctor.id,
+        deletedAt: null,
+        ...(dto.view === 'upcoming'
+          ? {
+              status: {
+                in: [
+                  AppointmentStatus.PENDING,
+                  AppointmentStatus.CONFIRMED,
+                  AppointmentStatus.RESCHEDULED,
+                ],
+              },
+            }
+          : {}),
+        ...(dto.view === 'past'
+          ? {
+              status: {
+                in: [
+                  AppointmentStatus.COMPLETED,
+                  AppointmentStatus.CANCELLED,
+                  AppointmentStatus.REJECTED,
+                ],
+              },
+            }
+          : {}),
+      },
+      include: appointmentPatientInclude,
+      orderBy: [{ appointmentDate: 'asc' }, { startTime: 'asc' }],
+    });
+
+    return appointments.map((appointment) =>
+      this.appointmentResponseMapper.toDoctorAppointmentDto(appointment),
+    );
+  }
+
+  async acceptAppointment(
+    userId: string,
+    params: DoctorAppointmentActionParamDto,
+  ): Promise<DoctorAppointmentResponseDto> {
+    const doctor = await this.getAuthorizedDoctor(userId, params.doctorId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.findFirst({
+        where: {
+          id: params.appointmentId,
+          doctorId: doctor.id,
+          deletedAt: null,
+        },
+        include: appointmentPatientInclude,
+      });
+
+      if (!appointment) {
+        throw new NotFoundException('Appointment not found');
+      }
+
+      if (appointment.status !== AppointmentStatus.PENDING) {
+        throw new ConflictException('Only pending appointments can be accepted');
+      }
+
+      const meetingLink = appointment.meetingLink ?? this.googleMeetLinkService.generate();
+
+      const updatedAppointment = await tx.appointment.update({
+        where: { id: appointment.id },
+        data: {
+          status: AppointmentStatus.CONFIRMED,
+          meetingLink,
+          statusHistories: {
+            create: {
+              status: AppointmentStatus.CONFIRMED,
+              changedById: userId,
+              notes: 'Appointment accepted by doctor. Google Meet link generated.',
+            },
+          },
+        },
+        include: appointmentPatientInclude,
+      });
+
+      return this.appointmentResponseMapper.toDoctorAppointmentDto(updatedAppointment);
+    });
+  }
+
+  async rejectAppointment(
+    userId: string,
+    params: DoctorAppointmentActionParamDto,
+    dto: RejectAppointmentDto,
+  ): Promise<DoctorAppointmentResponseDto> {
+    const doctor = await this.getAuthorizedDoctor(userId, params.doctorId);
+    const rejectionReason = dto.rejectionReason.trim();
+
+    if (!rejectionReason) {
+      throw new BadRequestException('Rejection reason is required');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.findFirst({
+        where: {
+          id: params.appointmentId,
+          doctorId: doctor.id,
+          deletedAt: null,
+        },
+        include: appointmentPatientInclude,
+      });
+
+      if (!appointment) {
+        throw new NotFoundException('Appointment not found');
+      }
+
+      if (appointment.status !== AppointmentStatus.PENDING) {
+        throw new ConflictException('Only pending appointments can be rejected');
+      }
+
+      await tx.doctorSchedule.update({
+        where: { id: appointment.scheduleId },
+        data: { status: ScheduleStatus.AVAILABLE },
+      });
+
+      const updatedAppointment = await tx.appointment.update({
+        where: { id: appointment.id },
+        data: {
+          status: AppointmentStatus.REJECTED,
+          rejectionReason,
+          statusHistories: {
+            create: {
+              status: AppointmentStatus.REJECTED,
+              changedById: userId,
+              notes: rejectionReason,
+            },
+          },
+        },
+        include: appointmentPatientInclude,
+      });
+
+      return this.appointmentResponseMapper.toDoctorAppointmentDto(updatedAppointment);
+    });
+  }
+
+  async cancelDoctorAppointment(
+    userId: string,
+    params: DoctorAppointmentActionParamDto,
+    dto: CancelAppointmentDto,
+  ): Promise<DoctorAppointmentResponseDto> {
+    const doctor = await this.getAuthorizedDoctor(userId, params.doctorId);
+    const cancellationReason = dto.cancellationReason?.trim();
+
+    if (!cancellationReason) {
+      throw new BadRequestException('Cancellation reason is required');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.findFirst({
+        where: {
+          id: params.appointmentId,
+          doctorId: doctor.id,
+          deletedAt: null,
+        },
+        include: appointmentPatientInclude,
+      });
+
+      if (!appointment) {
+        throw new NotFoundException('Appointment not found');
+      }
+
+      if (appointment.status === AppointmentStatus.CANCELLED) {
+        throw new ConflictException('This appointment is already cancelled');
+      }
+
+      if (
+        appointment.status === AppointmentStatus.COMPLETED ||
+        appointment.status === AppointmentStatus.REJECTED
+      ) {
+        throw new ConflictException('This appointment can no longer be cancelled');
+      }
+
+      await tx.doctorSchedule.update({
+        where: { id: appointment.scheduleId },
+        data: { status: ScheduleStatus.AVAILABLE },
+      });
+
+      const updatedAppointment = await tx.appointment.update({
+        where: { id: appointment.id },
+        data: {
+          status: AppointmentStatus.CANCELLED,
+          cancellationReason,
+          cancelledById: userId,
+          statusHistories: {
+            create: {
+              status: AppointmentStatus.CANCELLED,
+              changedById: userId,
+              notes: cancellationReason,
+            },
+          },
+        },
+        include: appointmentPatientInclude,
+      });
+
+      return this.appointmentResponseMapper.toDoctorAppointmentDto(updatedAppointment);
+    });
+  }
+
   private async getAuthorizedPatient(userId: string, patientId: string) {
     const patient = await this.prisma.patient.findFirst({
       where: {
@@ -301,5 +536,21 @@ export class AppointmentService {
     }
 
     return patient;
+  }
+
+  private async getAuthorizedDoctor(userId: string, doctorId: string) {
+    const doctor = await this.prisma.doctor.findFirst({
+      where: {
+        id: doctorId,
+        userId,
+        deletedAt: null,
+      },
+    });
+
+    if (!doctor) {
+      throw new ForbiddenException('You can only access your own doctor appointments');
+    }
+
+    return doctor;
   }
 }

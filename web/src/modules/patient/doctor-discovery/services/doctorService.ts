@@ -10,7 +10,8 @@ interface SpecializationResponse {
 interface BookConsultationPayload {
   doctorId: string;
   scheduleId: string;
-  reasonForConsultation?: string;
+  consultationType: string;
+  reasonForConsultation: string;
 }
 
 export const medicalNeeds: MedicalNeed[] = [

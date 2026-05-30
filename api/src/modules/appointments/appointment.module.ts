@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../../database/prisma.module';
 import { AppointmentController } from './appointment.controller';
 import { AppointmentResponseMapper } from './mappers/appointment-response.mapper';
+import { GoogleMeetLinkService } from './services/google-meet-link.service';
 import { AppointmentService } from './appointment.service';
 
 @Module({
@@ -16,6 +17,6 @@ import { AppointmentService } from './appointment.service';
     }),
   ],
   controllers: [AppointmentController],
-  providers: [AppointmentService, AppointmentResponseMapper],
+  providers: [AppointmentService, AppointmentResponseMapper, GoogleMeetLinkService],
 })
 export class AppointmentModule {}

@@ -1,4 +1,11 @@
-export interface DoctorAppointment {
+export type DoctorAppointmentStatusDto =
+  | 'Pending'
+  | 'Confirmed'
+  | 'Rejected'
+  | 'Completed'
+  | 'Cancelled';
+
+export class DoctorAppointmentResponseDto {
   id: string;
   patientId: string;
   patient: string;
@@ -7,8 +14,8 @@ export interface DoctorAppointment {
   time: string;
   date: string;
   type: string;
-  consultationType?: string;
-  status: 'Pending' | 'Confirmed' | 'Rejected' | 'Completed' | 'Cancelled';
+  consultationType: string;
+  status: DoctorAppointmentStatusDto;
   visitReason: string;
   avatar: string;
   meetingLink?: string;

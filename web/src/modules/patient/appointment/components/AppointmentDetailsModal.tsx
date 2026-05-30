@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Clock, Video, Info, RefreshCw, XCircle } from 'lucide-react';
+import { X, Calendar, Clock, Video, RefreshCw, XCircle } from 'lucide-react';
 import { PatientAppointment } from '../types/appointment';
 import { getDisplayDateFormatted } from '../services/appointmentService';
 import Link from 'next/link';
@@ -18,8 +18,10 @@ export default function AppointmentDetailsModal({
   onCancel,
 }: AppointmentDetailsModalProps) {
   const displayDate = getDisplayDateFormatted(appointment.date);
+  const hasMeetingLink = appointment.roomId.startsWith('http');
 
   const statusBadgeColor = {
+    Pending: 'bg-amber-50 text-amber-600 border-amber-100',
     Upcoming: 'bg-accent-light text-accent border-accent/20',
     Completed: 'bg-primary-light text-primary border-primary/20',
     Cancelled: 'bg-rose-50 text-rose-500 border-rose-100',
@@ -82,6 +84,12 @@ export default function AppointmentDetailsModal({
                 <Clock className="h-4 w-4 text-primary" /> {appointment.slotStart} - {appointment.slotEnd}
               </span>
             </div>
+            <div className="space-y-1 col-span-2">
+              <span className="text-[9px] text-slate-400 font-bold uppercase block tracking-wider">Consultation Type</span>
+              <span className="text-xs font-bold text-brand-text">
+                {appointment.consultationType}
+              </span>
+            </div>
           </div>
 
           {/* Reason for Visit */}
@@ -99,9 +107,20 @@ export default function AppointmentDetailsModal({
                 <Video className="h-4.5 w-4.5 text-primary" />
                 <span>Telehealth Consultation Room</span>
               </div>
-              <p className="text-[10px] text-slate-400 font-semibold pl-6.5">
-                Join room <span className="font-bold text-brand-text">{appointment.roomId}</span>. Please test your camera and microphone beforehand.
-              </p>
+              {hasMeetingLink ? (
+                <a
+                  href={appointment.roomId}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block break-all text-[10px] text-primary font-bold pl-6.5 hover:underline"
+                >
+                  {appointment.roomId}
+                </a>
+              ) : (
+                <p className="text-[10px] text-slate-400 font-semibold pl-6.5">
+                  Waiting for the doctor to accept and generate the Google Meet link.
+                </p>
+              )}
             </div>
           )}
 
@@ -121,7 +140,8 @@ export default function AppointmentDetailsModal({
           {appointment.status === 'Upcoming' && (
             <div className="flex gap-2.5">
               <Link
-                href="/patient/consultation-session"
+                href={hasMeetingLink ? appointment.roomId : '#'}
+                target={hasMeetingLink ? '_blank' : undefined}
                 className="flex-1 text-center rounded-xl bg-primary py-2.5 text-xs font-bold text-white shadow-md shadow-primary/20 hover:bg-primary-dark transition-colors cursor-pointer"
               >
                 Join Consultation Room
@@ -130,7 +150,7 @@ export default function AppointmentDetailsModal({
           )}
 
           <div className="flex gap-2">
-            {appointment.status === 'Upcoming' && (
+            {(appointment.status === 'Pending' || appointment.status === 'Upcoming') && (
               <>
                 <button
                   onClick={() => {
@@ -153,7 +173,7 @@ export default function AppointmentDetailsModal({
               </>
             )}
             
-            {appointment.status !== 'Upcoming' && (
+            {appointment.status !== 'Pending' && appointment.status !== 'Upcoming' && (
               <button
                 onClick={onClose}
                 className="w-full text-center rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"

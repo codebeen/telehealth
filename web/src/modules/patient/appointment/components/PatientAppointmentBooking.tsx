@@ -60,7 +60,7 @@ export default function PatientAppointmentBooking() {
   // Tab Filtering
   const filteredAppointments = appointments.filter(appt => {
     if (activeTab === 'upcoming') {
-      return appt.status === 'Upcoming';
+      return appt.status === 'Pending' || appt.status === 'Upcoming';
     } else {
       return appt.status === 'Completed' || appt.status === 'Cancelled';
     }
@@ -91,7 +91,7 @@ export default function PatientAppointmentBooking() {
   };
 
   // Summary Counts
-  const totalUpcoming = appointments.filter(a => a.status === 'Upcoming').length;
+  const totalUpcoming = appointments.filter(a => a.status === 'Pending' || a.status === 'Upcoming').length;
   const totalCompleted = appointments.filter(a => a.status === 'Completed').length;
   const totalCancelled = appointments.filter(a => a.status === 'Cancelled').length;
 

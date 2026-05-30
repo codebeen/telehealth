@@ -1,0 +1,50 @@
+// =============================================================================
+// Model: Patient
+// Purpose: Patient-specific info; linked to User + ProfileDetails.
+// =============================================================================
+
+model Patient {
+  id                     String    @id @default(uuid()) @db.Uuid
+  userId                 String    @unique @map("user_id") @db.Uuid
+  profileDetailsId       String    @unique @map("profile_details_id") @db.Uuid
+  weight                 Decimal?  @db.Decimal(5, 2)
+  height                 Decimal?  @db.Decimal(5, 2)
+  bloodType              String?   @map("blood_type") @db.VarChar(10)
+  emergencyContactName   String?   @map("emergency_contact_name") @db.VarChar(150)
+  emergencyContactNumber String?   @map("emergency_contact_number") @db.VarChar(30)
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  deletedAt              DateTime? @map("deleted_at")
+
+  // Relations
+  user           User           @relation(fields: [userId], references: [id])
+  profileDetails ProfileDetails @relation(fields: [profileDetailsId], references: [id])
+  medicalHistories PatientMedicalHistory[]
+  allergies        PatientAllergy[]
+  appointments     Appointment[]
+  medicalRecords   MedicalRecord[]
+
+  @@map("patients")
+}
+
+// =============================================================================
+// Model: PatientMedicalHistory
+// Purpose: Normalised per-condition records (one row per diagnosis).
+// =============================================================================
+
+model PatientMedicalHistory {
+  id            String               @id @default(uuid()) @db.Uuid
+  patientId     String               @map("patient_id") @db.Uuid
+  conditionName String               @map("condition_name") @db.VarChar(255)
+  description   String?              @db.Text
+  diagnosedDate DateTime?            @map("diagnosed_date") @db.Date
+  status        MedicalHistoryStatus @default(ACTIVE)
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  deletedAt     DateTime?            @map("deleted_at")
+
+  // Relations
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@map("patient_medical_histories")
+}

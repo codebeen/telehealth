@@ -1,0 +1,22 @@
+// =============================================================================
+// Model: ConsultationSession
+// Purpose: Tracks the live video session tied to an appointment.
+// =============================================================================
+
+model ConsultationSession {
+  id            String               @id @default(uuid()) @db.Uuid
+  appointmentId String               @unique @map("appointment_id") @db.Uuid
+  meetingUrl    String               @map("meeting_url") @db.Text
+  provider      ConsultationProvider
+  status        ConsultationStatus   @default(WAITING)
+  startedAt     DateTime?            @map("started_at")
+  endedAt       DateTime?            @map("ended_at")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  deletedAt     DateTime?            @map("deleted_at")
+
+  // Relations
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@map("consultation_sessions")
+}

@@ -1,0 +1,27 @@
+// =============================================================================
+// Model: ProfileDetails
+// Purpose: Shared reusable profile for both Patient and Doctor.
+// =============================================================================
+
+model ProfileDetails {
+  id             String    @id @default(uuid()) @db.Uuid
+  firstName      String    @map("first_name") @db.VarChar(100)
+  middleName     String?   @map("middle_name") @db.VarChar(100)
+  lastName       String    @map("last_name") @db.VarChar(100)
+  suffix         String?   @db.VarChar(20)
+  birthDate      DateTime  @map("birth_date") @db.Date
+  gender         String    @db.VarChar(50)
+  profilePicture String?   @map("profile_picture") @db.Text
+  phoneNumber    String    @map("phone_number") @db.VarChar(30)
+  addressId      String    @unique @map("address_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  // Relations
+  address Address  @relation(fields: [addressId], references: [id])
+  patient Patient?
+  doctor  Doctor?
+
+  @@map("profile_details")
+}

@@ -42,7 +42,7 @@ export default function Sidebar({ navigation, user, isSidebarOpen, setIsSidebarO
             <Stethoscope className="h-5 w-5" />
           </div>
           <span className="text-xl font-bold tracking-tight text-white">
-            KY<span className="text-secondary">UR</span>
+            KY<span className="text-secondary">URA</span>
           </span>
         </Link>
         <button 

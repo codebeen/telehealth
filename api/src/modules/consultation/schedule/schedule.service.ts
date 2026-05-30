@@ -95,6 +95,18 @@ export class ScheduleService {
           throw new BadRequestException(`Invalid date key: ${dateKey}`);
         }
 
+        if (this.isDateInPast(scheduleDate)) {
+          throw new BadRequestException('Past dates cannot be saved as available schedules');
+        }
+
+        if (daySchedule.available && Array.isArray(daySchedule.timeRanges)) {
+          for (const range of daySchedule.timeRanges) {
+            if (this.isDateTimeInPast(scheduleDate, range.start)) {
+              throw new BadRequestException('Past times cannot be saved as available schedules');
+            }
+          }
+        }
+
         // 1. Clear existing slots for this doctor on this day
         await tx.doctorSchedule.deleteMany({
           where: {
@@ -138,5 +150,22 @@ export class ScheduleService {
     });
 
     return { success: true };
+  }
+
+  private isDateInPast(date: Date) {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    return date.getTime() < today.getTime();
+  }
+
+  private isDateTimeInPast(date: Date, time: string) {
+    const [hours, minutes] = time.split(':').map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+      throw new BadRequestException(`Invalid time value: ${time}`);
+    }
+
+    const dateTime = new Date(date);
+    dateTime.setUTCHours(hours, minutes, 0, 0);
+    return dateTime.getTime() <= Date.now();
   }
 }

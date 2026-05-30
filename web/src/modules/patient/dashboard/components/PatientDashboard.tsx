@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
-  Calendar, FileText, Plus, ChevronRight, Search, ShieldCheck 
+  Calendar, FileText, Plus, ChevronRight, Search, ShieldCheck, 
+  ArrowRight
 } from 'lucide-react';
 import { PrescriptionRecord, MedicalHistoryItem, ConsultationSessionRecord } from '@/modules/patient/medical-records/types/medicalRecord';
 import { getDisplayDateFormatted } from '@/modules/patient/appointment/services/appointmentService';
@@ -98,7 +99,7 @@ export default function PatientDashboard() {
                 href="/patient/appointment" 
                 className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
               >
-                Book Appointment <Plus className="h-4 w-4" />
+                View All <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
 
@@ -134,12 +135,25 @@ export default function PatientDashboard() {
                         {appointment.status}
                       </span>
                       
-                      <Link 
-                        href="/patient/consultation-session"
-                        className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow-xs shadow-primary/10 hover:bg-primary-dark transition-colors"
-                      >
-                        Join Call
-                      </Link>
+                      {appointment.roomId?.startsWith('http') ? (
+                        <a
+                          href={appointment.roomId}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow-xs shadow-primary/10 hover:bg-primary-dark transition-colors"
+                        >
+                          Join Call
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          title="Meeting link will be available after the doctor confirms the appointment."
+                          className="rounded-xl bg-slate-300 px-4 py-2 text-xs font-bold text-white cursor-not-allowed"
+                        >
+                          Join Call
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))

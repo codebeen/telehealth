@@ -177,7 +177,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
 
           <div className="mt-8 border-t border-slate-100 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <span className="text-[11px] text-slate-400">
-              © {new Date().getFullYear()} KYUR Inc. All rights reserved.
+              © {new Date().getFullYear()} KYURA. All rights reserved.
             </span>
             <div className="flex gap-4">
               <span className="text-[11px] font-medium text-slate-400">Made with ❤️ for better health.</span>

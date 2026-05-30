@@ -132,6 +132,10 @@ export class AppointmentService {
         throw new BadRequestException('This schedule slot is not bookable');
       }
 
+      if (this.isScheduleSlotInPast(schedule.scheduleDate, schedule.startTime)) {
+        throw new BadRequestException('Past dates and times cannot be booked');
+      }
+
       if (schedule.status !== ScheduleStatus.AVAILABLE || schedule.appointments.length > 0) {
         throw new ConflictException('This schedule slot is no longer available');
       }
@@ -239,6 +243,10 @@ export class AppointmentService {
 
       if (!newSchedule.startTime || !newSchedule.endTime) {
         throw new BadRequestException('This schedule slot is not bookable');
+      }
+
+      if (this.isScheduleSlotInPast(newSchedule.scheduleDate, newSchedule.startTime)) {
+        throw new BadRequestException('Past dates and times cannot be booked');
       }
 
       if (newSchedule.status !== ScheduleStatus.AVAILABLE || newSchedule.appointments.length > 0) {
@@ -787,5 +795,11 @@ export class AppointmentService {
     ].join(':');
 
     return `${datePart}T${timePart}`;
+  }
+
+  private isScheduleSlotInPast(date: Date, time: Date) {
+    const slotDateTime = new Date(date);
+    slotDateTime.setUTCHours(time.getUTCHours(), time.getUTCMinutes(), 0, 0);
+    return slotDateTime.getTime() <= Date.now();
   }
 }

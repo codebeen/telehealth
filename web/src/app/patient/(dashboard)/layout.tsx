@@ -17,7 +17,7 @@ const patientNavigation = [
 const patientUser = {
   name: 'Arthur Pendragon',
   role: 'patient' as const,
-  email: 'arthur.p@kyur.com',
+  email: 'arthur.p@kyura.com',
 };
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {

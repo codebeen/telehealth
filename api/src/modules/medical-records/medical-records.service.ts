@@ -78,20 +78,51 @@ export class MedicalRecordsService {
     };
   }
 
+  private mapAppointmentRecord(appointment: any) {
+    const record = appointment.medicalRecord;
+    const doctorName = [
+      appointment.doctor?.profileDetails?.firstName,
+      appointment.doctor?.profileDetails?.lastName,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    const specialty =
+      appointment.doctor?.doctorSpecializations?.[0]?.specialization?.name ?? 'General Practice';
+
+    return {
+      id: record?.id ?? appointment.id,
+      appointmentId: appointment.id,
+      doctorName: doctorName ? `Dr. ${doctorName}` : 'Doctor',
+      specialty,
+      date: this.formatDate(appointment.appointmentDate ?? record?.createdAt),
+      duration: this.formatDuration(appointment.startTime, appointment.endTime),
+      consultationType:
+        record?.consultationType ?? appointment.consultationType ?? 'General Consult',
+      clinicalFindings: record?.clinicalFindings ?? record?.diagnosis ?? '',
+      recommendations: record?.recommendations ?? record?.consultationNotes ?? '',
+      medicationPrescriptions: record?.medicationSummary ?? '',
+      finalSummary: record?.finalSummary ?? '',
+      diagnosis: record?.diagnosis ?? '',
+      treatmentNotes: record?.consultationNotes ?? '',
+      createdAt: record?.createdAt ?? appointment.updatedAt,
+      hasMedicalRecord: Boolean(record),
+    };
+  }
+
   async getPatientConsultationRecords(userId: string, patientId: string) {
     const patient = await this.getAuthorizedPatient(userId, patientId);
 
-    const records = await this.prisma.medicalRecord.findMany({
+    const appointments = await this.prisma.appointment.findMany({
       where: {
         patientId: patient.id,
         deletedAt: null,
-        appointment: {
-          deletedAt: null,
-          status: 'COMPLETED',
-        },
+        status: 'COMPLETED',
       },
       include: {
-        appointment: true,
+        medicalRecord: {
+          where: { deletedAt: null },
+        },
         doctor: {
           include: {
             profileDetails: true,
@@ -103,27 +134,29 @@ export class MedicalRecordsService {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ appointmentDate: 'desc' }, { startTime: 'desc' }],
     });
 
-    return records.map((record) => this.mapRecord(record));
+    return appointments.map((appointment) => this.mapAppointmentRecord(appointment));
   }
 
   async getPatientConsultationRecord(userId: string, patientId: string, recordId: string) {
     const patient = await this.getAuthorizedPatient(userId, patientId);
 
-    const record = await this.prisma.medicalRecord.findFirst({
+    const appointment = await this.prisma.appointment.findFirst({
       where: {
-        id: recordId,
         patientId: patient.id,
         deletedAt: null,
-        appointment: {
-          deletedAt: null,
-          status: 'COMPLETED',
-        },
+        status: 'COMPLETED',
+        OR: [
+          { id: recordId },
+          { medicalRecord: { id: recordId, deletedAt: null } },
+        ],
       },
       include: {
-        appointment: true,
+        medicalRecord: {
+          where: { deletedAt: null },
+        },
         doctor: {
           include: {
             profileDetails: true,
@@ -137,10 +170,10 @@ export class MedicalRecordsService {
       },
     });
 
-    if (!record) {
+    if (!appointment) {
       throw new NotFoundException('Consultation record not found');
     }
 
-    return this.mapRecord(record);
+    return this.mapAppointmentRecord(appointment);
   }
 }

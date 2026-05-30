@@ -183,7 +183,7 @@ export default function LandingPage() {
                 Three Simple Steps to Professional Care
               </h3>
               <p className="text-sm text-slate-500">
-                Getting medical advice shouldn't be difficult. KYUR streamlines the process to just a few clicks.
+                Getting medical advice shouldn't be difficult. KYURA streamlines the process to just a few clicks.
               </p>
               
               <div className="space-y-4 mt-8">
@@ -221,7 +221,7 @@ export default function LandingPage() {
                 <Star className="fill-amber-400 h-4.5 w-4.5" />
               </div>
               <blockquote className="text-sm font-semibold text-brand-text leading-relaxed">
-                "KYUR completely changed how I manage my diabetes. I can send blood sugar charts to Dr. Adams and jump on a 5-minute video call to adjust my dosage. I saved hours of driving and waiting at clinics!"
+                "KYURA completely changed how I manage my diabetes. I can send blood sugar charts to Dr. Adams and jump on a 5-minute video call to adjust my dosage. I saved hours of driving and waiting at clinics!"
               </blockquote>
               <div className="flex items-center gap-3 border-t border-slate-50 pt-4">
                 <div className="h-9 w-9 rounded-full bg-primary-light flex items-center justify-center text-primary text-xs font-bold">

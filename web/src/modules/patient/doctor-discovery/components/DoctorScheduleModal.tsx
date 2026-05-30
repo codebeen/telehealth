@@ -26,10 +26,30 @@ const CONSULTATION_TYPES = [
 const formatKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-const today = new Date();
-today.setHours(0, 0, 0, 0);
+const getTodayStart = () => {
+  const value = new Date();
+  value.setHours(0, 0, 0, 0);
+  return value;
+};
+
+const parseSlotDateTime = (dateStr: string, timeLabel: string) => {
+  const match = timeLabel.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+
+  const [, hourPart, minutePart, periodPart] = match;
+  let hours = Number(hourPart);
+  const minutes = Number(minutePart);
+  const period = periodPart.toUpperCase();
+
+  if (period === 'PM' && hours !== 12) hours += 12;
+  if (period === 'AM' && hours === 12) hours = 0;
+
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+};
 
 export default function DoctorScheduleModal({ doctor, onClose, onBooked }: DoctorScheduleModalProps) {
+  const today = getTodayStart();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string>(formatKey(today));
@@ -74,9 +94,14 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
   // Group slots into morning (AM) and afternoon/evening (PM)
   const morningSlots = currentDaySchedule.slots.filter(slot => slot.start.includes('AM'));
   const afternoonSlots = currentDaySchedule.slots.filter(slot => slot.start.includes('PM'));
+  const isPastSlot = (slot: TimeSlot) => {
+    const slotDateTime = parseSlotDateTime(selectedDate, slot.start);
+    return Boolean(slotDateTime && slotDateTime.getTime() <= Date.now());
+  };
+  const selectedSlotIsPast = Boolean(selectedSlot && isPastSlot(selectedSlot));
 
   const handleSelectSlot = (slot: TimeSlot) => {
-    if (slot.isBooked) return;
+    if (slot.isBooked || isPastSlot(slot)) return;
     setSelectedSlot(slot);
     setBookingError(null);
   };
@@ -89,6 +114,11 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
 
   const handleConfirmBooking = async () => {
     if (!selectedSlot) return;
+
+    if (selectedSlotIsPast) {
+      setBookingError('This time slot has already passed. Please choose a future time.');
+      return;
+    }
 
     const trimmedType = consultationType.trim();
     const trimmedReason = reasonForConsultation.trim();
@@ -126,7 +156,12 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
   // Helper to count available slots for a day
   const getAvailableSlotsCount = (dateStr: string) => {
     const found = doctor.schedule.find(s => s.date === dateStr);
-    if (found) return found.slots.filter(s => !s.isBooked).length;
+    if (found) {
+      return found.slots.filter((slot) => {
+        const slotDateTime = parseSlotDateTime(dateStr, slot.start);
+        return !slot.isBooked && (!slotDateTime || slotDateTime.getTime() > Date.now());
+      }).length;
+    }
 
     return 0;
   };
@@ -336,13 +371,14 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
                     <div className="grid grid-cols-2 gap-2">
                       {morningSlots.map((slot) => {
                         const isSelected = selectedSlot?.id === slot.id;
+                        const isDisabled = slot.isBooked || isPastSlot(slot);
                         return (
                           <button
                             key={slot.id}
-                            disabled={slot.isBooked}
+                            disabled={isDisabled}
                             onClick={() => handleSelectSlot(slot)}
                             className={`py-2 px-3 text-[11px] font-bold rounded-xl border text-center transition-all ${
-                              slot.isBooked
+                              isDisabled
                                 ? 'border-slate-50 bg-slate-50/50 text-slate-300 cursor-not-allowed line-through'
                                 : isSelected
                                   ? 'border-primary bg-primary text-white shadow-xs'
@@ -366,13 +402,14 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
                     <div className="grid grid-cols-2 gap-2">
                       {afternoonSlots.map((slot) => {
                         const isSelected = selectedSlot?.id === slot.id;
+                        const isDisabled = slot.isBooked || isPastSlot(slot);
                         return (
                           <button
                             key={slot.id}
-                            disabled={slot.isBooked}
+                            disabled={isDisabled}
                             onClick={() => handleSelectSlot(slot)}
                             className={`py-2 px-3 text-[11px] font-bold rounded-xl border text-center transition-all ${
-                              slot.isBooked
+                              isDisabled
                                 ? 'border-slate-50 bg-slate-50/50 text-slate-300 cursor-not-allowed line-through'
                                 : isSelected
                                   ? 'border-primary bg-primary text-white shadow-xs'
@@ -447,7 +484,11 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
             {/* Footer Summary / Trigger */}
             <div className="border-t border-slate-50 pt-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
               <div className="text-center sm:text-left">
-                {selectedSlot ? (
+                {selectedSlotIsPast ? (
+                  <p className="text-[11px] font-semibold text-rose-500 flex items-center gap-1">
+                    <AlertCircle className="h-3.5 w-3.5" /> This selected time has already passed.
+                  </p>
+                ) : selectedSlot ? (
                   <p className="text-[11px] font-semibold text-slate-500">
                     Booking session on <span className="font-bold text-brand-text">{dateFormatted}</span> at <span className="font-bold text-brand-text">{selectedSlot.start} - {selectedSlot.end}</span>
                   </p>
@@ -466,10 +507,10 @@ export default function DoctorScheduleModal({ doctor, onClose, onBooked }: Docto
                   Cancel
                 </button>
                 <button
-                  disabled={!selectedSlot || !consultationType.trim() || !reasonForConsultation.trim() || bookingStep === 'confirming'}
+                  disabled={!selectedSlot || selectedSlotIsPast || !consultationType.trim() || !reasonForConsultation.trim() || bookingStep === 'confirming'}
                   onClick={handleConfirmBooking}
                   className={`flex-1 sm:flex-none rounded-xl px-5 py-2.5 text-xs font-bold text-white transition-all ${
-                    !selectedSlot || !consultationType.trim() || !reasonForConsultation.trim() || bookingStep === 'confirming'
+                    !selectedSlot || selectedSlotIsPast || !consultationType.trim() || !reasonForConsultation.trim() || bookingStep === 'confirming'
                       ? 'bg-slate-300 cursor-not-allowed'
                       : 'bg-primary hover:bg-primary-dark shadow-xs'
                   }`}

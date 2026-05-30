@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kyur - Telehealth Application",
-  description: "Kyur is an innovative telehealth application designed to connect patients with licensed healthcare providers for seamless virtual consultations, medical advice, and follow-up care.",
+  title: "Kyura - Telehealth Application",
+  description: "Kyura is an innovative telehealth application designed to connect patients with licensed healthcare providers for seamless virtual consultations, medical advice, and follow-up care.",
 };
 
 export default function RootLayout({

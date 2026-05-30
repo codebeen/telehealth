@@ -16,7 +16,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                           <Stethoscope className="h-6 w-6" />
                       </div>
                       <span className="text-2xl font-bold tracking-tight">
-                          KY<span className="text-secondary">UR</span>
+                          KY<span className="text-secondary">URA</span>
                       </span>
                   </Link>
 
@@ -64,7 +64,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
               {/* Footer branding */}
               <div className="absolute bottom-6 left-8 z-10 text-xs text-blue-200">
-                  © {new Date().getFullYear()} KYUR.
+                  © {new Date().getFullYear()} KYURA.
               </div>
           </div>
 

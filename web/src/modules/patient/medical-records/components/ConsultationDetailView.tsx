@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Clock,
   FileText,
-  Printer,
   ShieldAlert,
   Stethoscope,
   User,
@@ -118,13 +117,6 @@ export default function ConsultationDetailView({ id }: ConsultationDetailViewPro
           className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-100 bg-white px-3.5 py-2 text-xs font-bold text-slate-500 shadow-2xs transition-all hover:text-slate-700 hover:shadow-xs"
         >
           <ArrowLeft className="h-4 w-4" /> Back to Records
-        </button>
-
-        <button
-          onClick={() => window.print()}
-          className="flex cursor-pointer items-center gap-1.5 rounded-xl border border-primary/10 bg-primary-light px-3.5 py-2 text-xs font-bold text-primary transition-all hover:bg-primary/10"
-        >
-          <Printer className="h-4 w-4" /> Print Record
         </button>
       </div>
 

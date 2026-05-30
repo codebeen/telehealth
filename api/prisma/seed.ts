@@ -24,21 +24,18 @@ async function main() {
   console.log('Seeding specializations...');
 
   for (const spec of specializationsList) {
-    const existing = await prisma.specialization.findUnique({
+    await prisma.specialization.upsert({
       where: { name: spec.name },
+      update: {
+        description: spec.description,
+        deletedAt: null,
+      },
+      create: {
+        name: spec.name,
+        description: spec.description,
+      },
     });
-
-    if (!existing) {
-      await prisma.specialization.create({
-        data: {
-          name: spec.name,
-          description: spec.description,
-        },
-      });
-      console.log(`Created specialization: ${spec.name}`);
-    } else {
-      console.log(`Skipped specialization (already exists): ${spec.name}`);
-    }
+    console.log(`Upserted specialization: ${spec.name}`);
   }
 
   await prisma.$disconnect();

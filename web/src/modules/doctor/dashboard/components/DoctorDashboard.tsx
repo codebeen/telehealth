@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -8,87 +8,100 @@ import {
   FileText, Activity, UserPlus, CheckCircle2, ChevronRight 
 } from 'lucide-react';
 import PageHeader from '@/components/shared/PageHeader';
-import { PATIENT_DATA } from '@/modules/doctor/patients/types/patientData';
-import { APPOINTMENT_DATA } from '@/modules/doctor/appointments/types/appointmentData';
+import { fetchDoctorDashboard, DoctorDashboardData } from '../services/dashboardService';
+import { getCurrentDoctorId } from '../../utils/currentDoctor';
 
 export default function DoctorDashboard() {
   const router = useRouter();
+  const [dashboardData, setDashboardData] = useState<DoctorDashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Dynamic calculations based on state databases
-  const totalCompleted = APPOINTMENT_DATA.filter((a) => a.status === 'Completed').length;
-  const scheduledToday = APPOINTMENT_DATA.filter((a) => a.status === 'Confirmed' || a.status === 'Pending').length;
-  const activePatientsCount = PATIENT_DATA.length;
-  
-  // Count prescriptions in patients' history
-  let prescriptionsCount = 0;
-  PATIENT_DATA.forEach(p => {
-    p.history.forEach(h => {
-      if (h.prescriptions && h.prescriptions !== 'No medication prescribed.') {
-        prescriptionsCount++;
+  useEffect(() => {
+    async function loadDashboard() {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const doctorId = getCurrentDoctorId();
+        const data = await fetchDoctorDashboard(doctorId);
+        setDashboardData(data);
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err);
+        setError('We could not load your dashboard details right now.');
+      } finally {
+        setIsLoading(false);
       }
-    });
-  });
+    }
+    loadDashboard();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-300">
+        <PageHeader 
+          title="Dashboard" 
+          description="Overview of your patients and consultations." 
+        />
+        <div className="rounded-3xl border border-slate-100 bg-white p-12 text-center shadow-xs">
+          <p className="text-xs font-semibold text-slate-400">Loading your dashboard details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !dashboardData) {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-300">
+        <PageHeader 
+          title="Dashboard" 
+          description="Overview of your patients and consultations." 
+        />
+        <div className="rounded-3xl border border-rose-100 bg-rose-50 p-6 text-center shadow-xs">
+          <p className="text-xs font-bold text-rose-500">{error || 'Failed to load dashboard'}</p>
+        </div>
+      </div>
+    );
+  }
 
   const stats = [
-    { name: 'Total Consultations', value: String(140 + totalCompleted), change: '+12% this week', trend: 'up', icon: Video, color: 'text-primary bg-primary-light' },
-    { name: 'Scheduled Today', value: String(scheduledToday), change: 'Active appointments', trend: 'neutral', icon: Calendar, color: 'text-secondary bg-secondary-light' },
-    { name: 'Active Patients', value: String(activePatientsCount), change: '+4 new this month', trend: 'up', icon: Users, color: 'text-accent bg-accent-light' },
-    { name: 'Prescriptions Sent', value: String(90 + prescriptionsCount), change: 'Active patient scripts', trend: 'up', icon: FileText, color: 'text-sky-600 bg-sky-50' }
+    { name: 'Total Consultations', value: String(dashboardData.stats.totalConsultations), change: '+12% this week', trend: 'up', icon: Video, color: 'text-primary bg-primary-light' },
+    { name: 'Scheduled Today', value: String(dashboardData.stats.scheduledToday), change: 'Active appointments', trend: 'neutral', icon: Calendar, color: 'text-secondary bg-secondary-light' },
+    { name: 'Active Patients', value: String(dashboardData.stats.activePatientsCount), change: '+4 new this month', trend: 'up', icon: Users, color: 'text-accent bg-accent-light' },
+    { name: 'Prescriptions Sent', value: String(dashboardData.stats.prescriptionsCount), change: 'Active patient scripts', trend: 'up', icon: FileText, color: 'text-sky-600 bg-sky-50' }
   ];
 
-  // Map APPOINTMENT_DATA to today's dashboard appointments list
-  const appointments = APPOINTMENT_DATA
-    .filter((a) => a.status !== 'Rejected' && a.status !== 'Cancelled')
-    .map((a, index, arr) => {
-      let displayStatus = 'Scheduled';
-      if (a.status === 'Completed') {
-        displayStatus = 'Completed';
-      } else if (a.status === 'Confirmed') {
-        // Find if this is the first non-completed confirmed appointment
-        const firstConfirmedId = arr.find((item) => item.status === 'Confirmed')?.id;
-        if (firstConfirmedId === a.id) {
-          displayStatus = 'Next';
-        }
-      } else if (a.status === 'Pending') {
-        displayStatus = 'Pending';
-      }
-      
-      let borderLeftColor = 'border-l-slate-300';
-      if (displayStatus === 'Next') {
-        borderLeftColor = 'border-l-primary';
-      } else if (displayStatus === 'Completed') {
-        borderLeftColor = 'border-l-accent';
-      } else if (displayStatus === 'Pending') {
-        borderLeftColor = 'border-l-amber-400';
-      }
-
-      // Link to correct patient page
-      const patientRecord = PATIENT_DATA.find(p => p.name.toLowerCase() === a.patient.toLowerCase());
-
-      return {
-        id: a.id,
-        patient: a.patient,
-        time: a.time,
-        type: a.type,
-        status: displayStatus,
-        avatar: a.avatar,
-        color: borderLeftColor,
-        patientId: patientRecord?.id || ''
-      };
-    });
-
-  // Load recent patients dynamically from PATIENT_DATA
-  const recentPatients = PATIENT_DATA.map((p, index) => {
-    const lastSession = p.history[0];
+  const appointments = dashboardData.appointments.map((a) => {
+    let displayStatus = 'Scheduled';
+    if (a.status === 'COMPLETED' || a.status === 'Completed') {
+      displayStatus = 'Completed';
+    } else if (a.status === 'CONFIRMED' || a.status === 'Confirmed') {
+      displayStatus = 'Confirmed';
+    } else if (a.status === 'PENDING' || a.status === 'Pending') {
+      displayStatus = 'Pending';
+    }
     
+    let borderLeftColor = 'border-l-slate-300';
+    if (displayStatus === 'Confirmed') {
+      borderLeftColor = 'border-l-primary';
+    } else if (displayStatus === 'Completed') {
+      borderLeftColor = 'border-l-accent';
+    } else if (displayStatus === 'Pending') {
+      borderLeftColor = 'border-l-amber-400';
+    }
+
     return {
-      id: p.id,
-      name: p.name,
-      condition: lastSession ? lastSession.type : 'No records yet',
-      lastVisit: lastSession ? lastSession.date : '—',
-      status: p.status
+      id: a.id,
+      patient: a.patient,
+      time: a.time,
+      type: a.type,
+      status: displayStatus,
+      avatar: a.avatar,
+      color: borderLeftColor,
+      patientId: a.patientId
     };
   });
+
+  const recentPatients = dashboardData.recentPatients;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">

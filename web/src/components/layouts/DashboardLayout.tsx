@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Sidebar, { NavigationItem, UserProfile } from './Sidebar';
 import Header from './Header';
 import { AlertTriangle } from 'lucide-react';
+import api from '@/lib/api';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -17,6 +18,54 @@ export default function DashboardLayout({ children, navigation, user }: Dashboar
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [profileUser, setProfileUser] = useState<UserProfile>(user);
+
+  useEffect(() => {
+    async function loadUserProfile() {
+      if (typeof window === 'undefined') return;
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) return;
+      try {
+        const parsed = JSON.parse(storedUser);
+        const email = parsed.email;
+        const role = (parsed.role?.toLowerCase() === 'doctor' ? 'doctor' : 'patient') as 'doctor' | 'patient';
+        
+        let name = '';
+        
+        if (role === 'doctor' && parsed.doctorId) {
+          const res = await api.get(`/doctors/${parsed.doctorId}/profile`);
+          const details = res.data.profileDetails;
+          name = [details.firstName, details.middleName, details.lastName].filter(Boolean).join(' ');
+        } else if (role === 'patient' && parsed.patientId) {
+          const res = await api.get(`/patients/${parsed.patientId}/profile`);
+          const details = res.data.profileDetails;
+          name = [details.firstName, details.middleName, details.lastName].filter(Boolean).join(' ');
+        }
+        
+        if (!name) {
+          name = parsed.firstName && parsed.lastName ? `${parsed.firstName} ${parsed.lastName}` : 'User';
+        }
+        
+        setProfileUser({
+          name,
+          role,
+          email,
+        });
+      } catch (err) {
+        console.error('Failed to load user profile in DashboardLayout:', err);
+      }
+    }
+    loadUserProfile();
+
+    const handleProfileUpdate = () => {
+      loadUserProfile();
+    };
+
+    window.addEventListener('profile-updated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profile-updated', handleProfileUpdate);
+    };
+  }, []);
 
   // Close mobile sidebar drawer when pathname shifts
   useEffect(() => {
@@ -46,7 +95,7 @@ export default function DashboardLayout({ children, navigation, user }: Dashboar
       {/* 2. Sidebar Navigation Panel */}
       <Sidebar 
         navigation={navigation} 
-        user={user} 
+        user={profileUser} 
         isSidebarOpen={isSidebarOpen} 
         setIsSidebarOpen={setIsSidebarOpen} 
         onLogout={() => setIsLogoutConfirmOpen(true)}
@@ -57,7 +106,7 @@ export default function DashboardLayout({ children, navigation, user }: Dashboar
         
         {/* Top Navbar Header */}
         <Header 
-          user={user} 
+          user={profileUser} 
           setIsSidebarOpen={setIsSidebarOpen} 
           onLogout={() => setIsLogoutConfirmOpen(true)}
         />

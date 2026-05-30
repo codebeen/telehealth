@@ -84,15 +84,6 @@ export default function Sidebar({ navigation, user, isSidebarOpen, setIsSidebarO
 
       {/* User Workspace Toggle & User Card */}
       <div className="border-t border-slate-700/50 p-4 space-y-3 bg-black/15">
-        {/* Quick role switcher for demo convenience */}
-        <Link 
-          href={user.role === 'doctor' ? '/patient/dashboard' : '/doctor/dashboard'}
-          className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-slate-700 py-2 px-3 text-xs font-semibold text-slate-300 hover:border-primary/50 hover:text-primary hover:bg-primary/10 transition-all duration-200"
-        >
-          <SwitchCamera className="h-3.5 w-3.5" />
-          Switch to {user.role === 'doctor' ? 'Patient' : 'Doctor'} Space
-        </Link>
-
         <div className="flex items-center gap-3 px-2">
           <div className="relative">
             <div className="h-10 w-10 overflow-hidden rounded-full border-2 border-white/10 bg-slate-800 shadow-sm">

@@ -18,6 +18,34 @@ export class DoctorsController {
     return this.doctorsService.getSpecializations();
   }
 
+  @Get(':doctorId/dashboard')
+  @UseGuards(JwtAuthGuard)
+  async getDoctorDashboard(
+    @Request() req,
+    @Param('doctorId') doctorId: string,
+  ) {
+    return this.doctorsService.getDoctorDashboard(req.user.sub, doctorId);
+  }
+
+  @Get(':doctorId/profile')
+  @UseGuards(JwtAuthGuard)
+  async getDoctorProfile(
+    @Request() req,
+    @Param('doctorId') doctorId: string,
+  ) {
+    return this.doctorsService.getDoctorProfile(req.user.sub, doctorId);
+  }
+
+  @Patch(':doctorId/profile')
+  @UseGuards(JwtAuthGuard)
+  async updateDoctorProfile(
+    @Request() req,
+    @Param('doctorId') doctorId: string,
+    @Body() dto: any,
+  ) {
+    return this.doctorsService.updateDoctorProfile(req.user.sub, doctorId, dto);
+  }
+
   @Get(':doctorId/patients/completed')
   @UseGuards(JwtAuthGuard)
   async getCompletedConsultationPatients(

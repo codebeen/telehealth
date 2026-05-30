@@ -145,13 +145,6 @@ export default function Header({ user, setIsSidebarOpen, onLogout }: HeaderProps
                     <User className="h-4 w-4 text-slate-400" />
                     My Profile
                   </Link>
-                  <Link 
-                    href={user.role === 'doctor' ? '/doctor/dashboard' : '/patient/dashboard'}
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-brand-text transition-colors"
-                  >
-                    <Settings className="h-4 w-4 text-slate-400" />
-                    Settings
-                  </Link>
                 </div>
                 <div className="border-t border-slate-50 pt-1 mt-1">
                   <button 

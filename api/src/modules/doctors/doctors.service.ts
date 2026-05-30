@@ -236,6 +236,209 @@ export class DoctorsService {
     };
   }
 
+  async getDoctorDashboard(userId: string, doctorId: string) {
+    await this.getAuthorizedDoctor(userId, doctorId);
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+    // 1. Total consultations (COMPLETED appointments)
+    const totalConsultations = await this.prisma.appointment.count({
+      where: {
+        doctorId,
+        status: AppointmentStatus.COMPLETED,
+        deletedAt: null,
+      },
+    });
+
+    // 2. Scheduled today (PENDING or CONFIRMED appointments for today)
+    const scheduledToday = await this.prisma.appointment.count({
+      where: {
+        doctorId,
+        appointmentDate: {
+          gte: today,
+          lt: tomorrow,
+        },
+        status: {
+          in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED],
+        },
+        deletedAt: null,
+      },
+    });
+
+    // 3. Active patients (Distinct patientIds with appointments)
+    const activePatientsCount = await this.prisma.appointment.groupBy({
+      by: ['patientId'],
+      where: {
+        doctorId,
+        deletedAt: null,
+      },
+    }).then((res) => res.length);
+
+    // 4. Prescriptions sent (Completed medical records with medication summary)
+    const prescriptionsCount = await this.prisma.medicalRecord.count({
+      where: {
+        doctorId,
+        medicationSummary: {
+          not: null,
+        },
+        deletedAt: null,
+      },
+    });
+
+    // 5. Today's appointments list
+    const appointments = await this.prisma.appointment.findMany({
+      where: {
+        doctorId,
+        appointmentDate: {
+          gte: today,
+          lt: tomorrow,
+        },
+        deletedAt: null,
+      },
+      include: {
+        patient: {
+          include: {
+            profileDetails: true,
+          },
+        },
+      },
+      orderBy: {
+        startTime: 'asc',
+      },
+    });
+
+    // 6. Recent patients list (Recent completed consultation patients)
+    const completedPatients = await this.getCompletedConsultationPatients(userId, doctorId);
+
+    return {
+      stats: {
+        totalConsultations,
+        scheduledToday,
+        activePatientsCount,
+        prescriptionsCount,
+      },
+      appointments: appointments.map((appt) => {
+        const profile = appt.patient.profileDetails;
+        const patientName = [profile.firstName, profile.middleName, profile.lastName]
+          .filter(Boolean)
+          .join(' ');
+        const initials = [profile.firstName[0], profile.lastName[0]].filter(Boolean).join('');
+        
+        const timeStr = appt.startTime ? new Date(appt.startTime).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'UTC'
+        }) : '';
+
+        return {
+          id: appt.id,
+          patient: patientName,
+          time: timeStr,
+          type: appt.consultationType || 'Virtual Consultation',
+          status: appt.status,
+          avatar: initials,
+          patientId: appt.patientId,
+        };
+      }),
+      recentPatients: completedPatients.slice(0, 5).map((p) => {
+        const lastSession = p.history[0];
+        return {
+          id: p.id,
+          name: p.name,
+          condition: lastSession ? lastSession.type : 'Consultation',
+          lastVisit: lastSession ? lastSession.date : '—',
+          status: p.status,
+        };
+      }),
+    };
+  }
+
+  async getDoctorProfile(userId: string, doctorId: string) {
+    const doctor = await this.prisma.doctor.findFirst({
+      where: {
+        id: doctorId,
+        userId,
+        deletedAt: null,
+      },
+      include: {
+        user: true,
+        profileDetails: {
+          include: {
+            address: true,
+          },
+        },
+        doctorSpecializations: {
+          where: { deletedAt: null },
+          include: {
+            specialization: true,
+          },
+        },
+      },
+    });
+
+    if (!doctor) {
+      throw new ForbiddenException('You can only access your own doctor profile');
+    }
+
+    const { yearsOfExperience, consultationFee, ...rest } = doctor;
+    return rest;
+  }
+
+  async updateDoctorProfile(userId: string, doctorId: string, dto: any) {
+    const doctor = await this.prisma.doctor.findFirst({
+      where: {
+        id: doctorId,
+        userId,
+        deletedAt: null,
+      },
+      include: {
+        profileDetails: true,
+      },
+    });
+
+    if (!doctor) {
+      throw new ForbiddenException('You can only update your own doctor profile');
+    }
+
+    // Update ProfileDetails
+    await this.prisma.profileDetails.update({
+      where: { id: doctor.profileDetailsId },
+      data: {
+        firstName: dto.firstName,
+        middleName: dto.middleName,
+        lastName: dto.lastName,
+        suffix: dto.suffix,
+        gender: dto.gender,
+        phoneNumber: dto.phoneNumber,
+        birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
+        profilePicture: dto.profilePicture !== undefined ? dto.profilePicture : undefined,
+        address: dto.address ? {
+          update: {
+            streetLine1: dto.address.streetLine1 || dto.address.street || '',
+            city: dto.address.city || '',
+            province: dto.address.province || dto.address.state || '',
+            zipCode: dto.address.zipCode || dto.address.postalCode || '',
+            country: dto.address.country || 'Philippines',
+          }
+        } : undefined,
+      },
+    });
+
+    // Update Doctor properties
+    await this.prisma.doctor.update({
+      where: { id: doctorId },
+      data: {
+        bio: dto.bio,
+      },
+    });
+
+    return this.getDoctorProfile(userId, doctorId);
+  }
+
   private async getAuthorizedDoctor(userId: string, doctorId: string) {
     const doctor = await this.prisma.doctor.findFirst({
       where: {

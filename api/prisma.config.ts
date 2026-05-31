@@ -10,7 +10,7 @@ import 'dotenv/config';
 export default defineConfig({
   schema: './prisma',
   migrations: {
-    seed: 'ts-node prisma/seed.ts',
+    seed: 'node prisma/seed.mjs',
   },
   datasource: {
     url: process.env.DATABASE_URL,

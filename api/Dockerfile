@@ -31,4 +31,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "pnpm prisma migrate deploy && pnpm run start:prod"]
+CMD ["sh", "-c", "pnpm prisma migrate deploy && pnpm prisma db seed && pnpm run start:prod"]

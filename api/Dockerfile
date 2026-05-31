@@ -24,11 +24,11 @@ COPY package.json pnpm-lock.yaml* ./
 COPY prisma.config.ts ./
 COPY prisma ./prisma
 
-RUN pnpm install --frozen-lockfile --prod=false
+RUN pnpm install --frozen-lockfile
 RUN pnpm prisma generate
 
 COPY --from=builder /app/dist ./dist
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "pnpm prisma migrate deploy && pnpm prisma db seed && pnpm run start:prod"]
+CMD ["sh", "-c", "pnpm prisma migrate deploy && pnpm run start:prod"]
